@@ -1001,49 +1001,13 @@ st.markdown("<div class='section-title'><h2>📈 大盤 K 線 + 風控變化</h2
 
 @st.cache_data(ttl=600)
 def 抓K線風控():
-    """抓加權指數 90 天 K 線 + LIS 風控分數變化"""
-    out = {"data": [], "marks": []}
+    """LIS 多因子風控分（RSI + 乖離 + 距高 + 量能）— 仿方舟"""
     try:
-        from modules import technical as _t
-        h, _ = _t.取得每日股價("^TWII", period="3mo")
-        if not h:
-            return out
-        # 新→舊 反轉
-        data = list(reversed(h))
-        out["data"] = data
-
-        # 從 fg_history 抓風控分數
-        fg_path = 專案根.parent / "數據" / "cache" / "fg_history.json"
-        fg_hist = []
-        if fg_path.exists():
-            fg_hist = json.loads(fg_path.read_text(encoding="utf-8"))
-
-        # 在 data 中找對應 F&G 分數的日期，產生標記
-        # 簡化：用 RSI/Close 變化算「風控警戒分」
-        marks = []
-        for i, d in enumerate(data):
-            if i < 14 or i % 7 != 0:  # 每 7 天打 1 點
-                continue
-            # 風控分 = (RSI + 漲跌幅累積) 簡化
-            recent = data[i-14:i+1]
-            highs = [r["high"] for r in recent]
-            lows = [r["low"] for r in recent]
-            closes = [r["close"] for r in recent]
-            close_now = closes[-1]
-            high_max = max(highs)
-            # 風控分 = 距高點接近度（越接近 = 越熱）
-            風控 = (close_now / high_max) * 100
-            marks.append({
-                "date": d["date"][:10],
-                "close": close_now,
-                "high": high_max,
-                "score": round(風控, 1),
-            })
-
-        out["marks"] = marks[-5:]  # 顯示最近 5 個風控點
+        from modules import risk_score
+        r = risk_score.算K線歷史風控("^TWII", period="3mo", 每幾天標一點=7)
+        return r
     except Exception as e:
-        out["error"] = str(e)
-    return out
+        return {"data": [], "marks": [], "error": str(e)}
 
 
 k_data = 抓K線風控()
@@ -1082,10 +1046,10 @@ if k_data.get("data"):
         fig_k.add_trace(go.Scatter(x=dates, y=ma60, name="MA60",
                                     line=dict(color='#FBBF24', width=1.5)))
 
-    # 加風控圓圈標記
+    # 加多因子風控分圓圈標記（仿方舟）
     for m in marks:
-        色 = ("#EF4444" if m["score"] >= 95 else
-              "#F59E0B" if m["score"] >= 85 else
+        色 = ("#EF4444" if m["score"] >= 70 else
+              "#F59E0B" if m["score"] >= 50 else
               "#22C55E")
         fig_k.add_annotation(
             x=m["date"], y=m["close"] * 1.02,
@@ -1116,29 +1080,36 @@ if k_data.get("data"):
     st.plotly_chart(fig_k, use_container_width=True,
                      config={'displayModeBar': False})
 
-    # 風控解讀
+    # 風控解讀（多因子綜合）
     if marks:
         latest = marks[-1]
-        if latest["score"] >= 95:
+        score = latest["score"]
+        if score >= 70:
             st.markdown(
                 f"<div style='padding:12px;background:rgba(239,68,68,0.1);"
                 f"border-left:3px solid #EF4444;border-radius:6px;margin-top:10px;'>"
-                f"🚨 <b>當前風控 {latest['score']:.1f}</b> — 過熱區（接近高點 {latest['score']:.1f}%）"
-                f"，建議減碼、不追高</div>",
+                f"🚨 <b>當前風控 {score:.1f}</b> — 過熱區（RSI/MA60乖離/距高/量能 多因子綜合）"
+                f"<br>建議：減碼 / 拉高閒錢比 / 不追高</div>",
                 unsafe_allow_html=True)
-        elif latest["score"] >= 85:
+        elif score >= 50:
             st.markdown(
                 f"<div style='padding:12px;background:rgba(245,158,11,0.1);"
                 f"border-left:3px solid #F59E0B;border-radius:6px;margin-top:10px;'>"
-                f"⚠️ <b>當前風控 {latest['score']:.1f}</b> — 偏高（接近高點 {latest['score']:.1f}%）"
-                f"，留意警戒</div>",
+                f"⚠️ <b>當前風控 {score:.1f}</b> — 警戒（停止加碼觀察）</div>",
                 unsafe_allow_html=True)
         else:
             st.markdown(
                 f"<div style='padding:12px;background:rgba(34,197,94,0.1);"
                 f"border-left:3px solid #22C55E;border-radius:6px;margin-top:10px;'>"
-                f"✅ <b>當前風控 {latest['score']:.1f}</b> — 健康（距高點 {100-latest['score']:.1f}%）"
-                f"</div>",
+                f"✅ <b>當前風控 {score:.1f}</b> — 健康（可正常依訊號操作）</div>",
+                unsafe_allow_html=True)
+
+        # 顯示風控分變化軌跡（仿方舟）
+        if len(marks) >= 3:
+            軌跡 = " → ".join([f"<span style='color:{'#EF4444' if m['score']>=70 else '#F59E0B' if m['score']>=50 else '#22C55E'};font-weight:bold'>{m['score']:.1f}</span>" for m in marks[-5:]])
+            st.markdown(
+                f"<div style='padding:10px;margin-top:6px;color:#888;font-size:13px'>"
+                f"📊 風控漸進軌跡：{軌跡}（越右越新）</div>",
                 unsafe_allow_html=True)
 else:
     st.info("K 線資料載入中...")
