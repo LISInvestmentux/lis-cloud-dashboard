@@ -94,8 +94,42 @@ def 載入雲端資料():
         print(f"[streamlit_app] ❌ Gist 載入失敗: {e}", file=sys.stderr)
 
 
+def 建立雲端placeholder():
+    """
+    雲端缺的資料檔（本機才有）建立空 placeholder，避免 FileNotFoundError。
+    這些檔案在本機由排程任務每天更新，雲端用空 placeholder + 即時 yfinance 取代。
+    """
+    candidates = [
+        # path, default_content
+        (HERE.parent / "數據" / "positional_state.json",
+         {"scores": {}, "details": {}, "_說明": "雲端 placeholder（本機才有真實資料）"}),
+        (HERE.parent / "數據" / "win_rate_db.json",
+         {"標的": {}, "_說明": "雲端 placeholder"}),
+        (HERE.parent / "數據" / "sylvie_portfolio.json",
+         {"持股": [], "已實現": [], "_說明": "雲端 placeholder"}),
+        (HERE.parent / "數據" / "sylvie_snapshot.json",
+         {"持股": [], "已實現": []}),
+        (HERE.parent / "數據" / "cache" / "fg_history.json",
+         []),
+        (HERE.parent / "API" / "watchlist.json",
+         {"regions": [], "_說明": "雲端 placeholder — 請從本機推 watchlist 到 Gist"}),
+    ]
+    for path, default in candidates:
+        if path.exists():
+            continue
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(default, ensure_ascii=False),
+                encoding="utf-8")
+            print(f"[streamlit_app] placeholder 建立: {path.name}", file=sys.stderr)
+        except (PermissionError, OSError) as e:
+            print(f"[streamlit_app] placeholder 失敗 {path.name}: {e}", file=sys.stderr)
+
+
 # 先載入再 exec（這時 web_dashboard 自己會跑 set_page_config）
 載入雲端資料()
+建立雲端placeholder()
 
 # exec 實際 dashboard
 dashboard_path = HERE / "web_dashboard.py"
