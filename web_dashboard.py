@@ -128,12 +128,33 @@ small { color: #6B7280 !important; }
     50% { opacity: 0.5; }
 }
 
-/* ===== Hero Metrics (4 大數字) ===== */
+/* ===== Hero Metrics (4 大數字) — Phase 33.2 responsive ===== */
 .metric-grid {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 16px;
     margin-bottom: 32px;
+}
+/* 平板 (≤ 1024px): 2 columns */
+@media (max-width: 1024px) {
+    .metric-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .metric-value { font-size: 28px !important; }
+    .metric-value.hero { font-size: 32px !important; }
+}
+/* 手機 (≤ 640px): 1 column (vertical stack) */
+@media (max-width: 640px) {
+    .metric-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .metric-card {
+        padding: 16px !important;
+    }
+    .metric-value { font-size: 24px !important; }
+    .metric-value.hero { font-size: 28px !important; }
+    .metric-sub { font-size: 11px !important; }
 }
 .metric-card {
     background: linear-gradient(135deg,
