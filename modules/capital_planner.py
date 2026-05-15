@@ -16,6 +16,7 @@ Phase 6.0：HOLD 不只「降低買進火力」，還會：
   - 建議減碼比例（單筆 +10~20% 減 1/3、+20% 以上減 1/2）
   - 入袋為安，拉高現金水位等下一波恐慌進場
 """
+import os
 import json
 import re
 from pathlib import Path
@@ -47,11 +48,15 @@ def 規範化代號(原始: str) -> str:
 
 
 專案根 = Path(__file__).resolve().parent.parent.parent
-PORTFOLIO_PATH = 專案根 / "API" / "portfolio.json"
+# Phase 33.2 — 支援環境變數覆寫（給雲端 streamlit_app 用）
+PORTFOLIO_PATH = Path(os.getenv("LIS_PORTFOLIO_PATH",
+                                  str(專案根 / "API" / "portfolio.json")))
 
 
 def 載入資金設定() -> dict:
-    with open(PORTFOLIO_PATH, "r", encoding="utf-8") as f:
+    # 每次呼叫重讀 env 變數（雲端可能在 import 後才設）
+    path = Path(os.getenv("LIS_PORTFOLIO_PATH", str(PORTFOLIO_PATH)))
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
