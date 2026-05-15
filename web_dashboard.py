@@ -22,11 +22,59 @@ load_dotenv(專案根.parent / "API" / ".env")
 
 
 st.set_page_config(
-    page_title="LIS · Investment Intelligence",
+    page_title="LIS",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# ════════════════════════════════════════════
+# Phase 33.3 — PWA 化：手機加入主畫面變 app
+# ════════════════════════════════════════════
+# PWA icon: LIS 漸層黃色「L」(SVG → data URI，避免 host 靜態檔)
+import base64 as _b64
+_LIS_ICON_SVG = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="#FBBF24"/>
+<stop offset="100%" stop-color="#A855F7"/>
+</linearGradient></defs>
+<rect width="512" height="512" rx="96" fill="#000"/>
+<text x="256" y="340" font-family="Inter,sans-serif" font-size="320"
+      font-weight="900" fill="url(#g)" text-anchor="middle">L</text>
+<circle cx="400" cy="140" r="36" fill="#22C55E"/>
+</svg>'''
+_ICON_DATA_URI = "data:image/svg+xml;base64," + _b64.b64encode(_LIS_ICON_SVG.encode()).decode()
+
+_MANIFEST = {
+    "name": "LIS Investment",
+    "short_name": "LIS",
+    "description": "Life Is Shit Investment Dashboard",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#FBBF24",
+    "orientation": "portrait",
+    "icons": [
+        {"src": _ICON_DATA_URI, "sizes": "192x192", "type": "image/svg+xml"},
+        {"src": _ICON_DATA_URI, "sizes": "512x512", "type": "image/svg+xml"},
+    ],
+}
+import json as _json
+_MANIFEST_DATA_URI = ("data:application/json;base64," +
+                      _b64.b64encode(_json.dumps(_MANIFEST).encode()).decode())
+
+# 注入 PWA meta tags（用 markdown 注入到 body，瀏覽器仍會讀）
+st.markdown(f"""
+<link rel="manifest" href="{_MANIFEST_DATA_URI}">
+<link rel="apple-touch-icon" href="{_ICON_DATA_URI}">
+<link rel="icon" type="image/svg+xml" href="{_ICON_DATA_URI}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LIS">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════
 # 專業 CSS（Bloomberg/Stripe 級）

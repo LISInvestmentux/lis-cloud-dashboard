@@ -19,6 +19,12 @@ DEFAULT_USER_ID = os.getenv("LINE_USER_ID", "").strip()
 
 PUSH_API = "https://api.line.me/v2/bot/message/push"
 
+# Phase 33.3 — 測試模式（避免爆 LINE 額度）
+# 在 .env 加 LIS_TEST_MODE=true 或 export 環境變數即啟用
+# 啟用後：所有推播只印到 console，不真的打 LINE API
+def _測試模式() -> bool:
+    return os.getenv("LIS_TEST_MODE", "").lower() in ("true", "1", "yes", "on")
+
 
 def 推播文字訊息(訊息: str, user_id: str | None = None) -> dict:
     """
@@ -35,6 +41,11 @@ def 推播文字訊息(訊息: str, user_id: str | None = None) -> dict:
         ValueError: Token 或 userId 沒設好
         requests.HTTPError: API 回傳非 200
     """
+    if _測試模式():
+        print(f"[TEST_MODE] 跳過推播文字（節省額度）：{訊息[:100]}...",
+              file=sys.stderr)
+        return {"test_mode": True}
+
     if not ACCESS_TOKEN:
         raise ValueError("LINE_CHANNEL_ACCESS_TOKEN 未設定，請檢查 API/.env")
 
@@ -82,6 +93,13 @@ def 推播Flex訊息(替代文字: str, flex內容: dict,
         替代文字: 用戶 LINE App 不支援 Flex 時顯示的純文字（也用在通知欄）
         flex內容: bubble 或 carousel 物件
     """
+    if _測試模式():
+        # 仍跑淨化驗證 flex 結構 OK，但不真的推
+        _淨化Flex(flex內容)
+        print(f"[TEST_MODE] 跳過推播 Flex（節省額度）：{替代文字[:100]}",
+              file=sys.stderr)
+        return {"test_mode": True}
+
     if not ACCESS_TOKEN:
         raise ValueError("LINE_CHANNEL_ACCESS_TOKEN 未設定")
     目標 = user_id or DEFAULT_USER_ID
