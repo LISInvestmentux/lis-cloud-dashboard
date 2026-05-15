@@ -1016,6 +1016,74 @@ if k_data.get("data"):
     data = k_data["data"]
     marks = k_data.get("marks", [])
 
+    # 仿方舟：即時大盤資訊條（K 線上方）
+    今 = data[-1]
+    昨 = data[-2] if len(data) >= 2 else 今
+    今價 = 今["close"]
+    今漲 = 今價 - 昨["close"]
+    今漲_pct = (今價 / 昨["close"] - 1) * 100
+    今vol = 今.get("volume", 0)
+
+    # 算 5MA / 20MA / 60MA
+    ma5_v = (sum(d["close"] for d in data[-5:]) / 5) if len(data) >= 5 else 今價
+    ma20_v = (sum(d["close"] for d in data[-20:]) / 20) if len(data) >= 20 else 今價
+    ma60_v = (sum(d["close"] for d in data[-60:]) / 60) if len(data) >= 60 else (
+        sum(d["close"] for d in data) / len(data))
+
+    # 量能換算（億元 — 但 yfinance 是股數，台股近似換算）
+    今單量_億 = (今vol * 今價 / 1e8) if 今vol else 0
+
+    # 算過去 20 天平均（總量近似）
+    過去20_vol = sum(d.get("volume", 0) * d["close"] for d in data[-20:])
+    過去20_億 = 過去20_vol / 1e8 / 20
+
+    # 漲跌顏色
+    漲色 = "#22C55E" if 今漲 >= 0 else "#EF4444"
+    漲符 = "▲" if 今漲 >= 0 else "▼"
+
+    日期str = datetime.fromisoformat(今["date"][:10]).strftime("%m/%d (%a)")
+
+    st.markdown(f"""
+<div style='background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);
+            border-radius:12px;padding:16px 20px;margin-bottom:12px;
+            display:flex;flex-wrap:wrap;align-items:center;gap:24px;'>
+  <div style='display:flex;flex-direction:column;'>
+    <div style='font-size:12px;color:#888;'>加權指數</div>
+    <div style='font-family:JetBrains Mono;font-size:32px;font-weight:900;color:#FBBF24;
+                line-height:1;'>{今價:,.2f}</div>
+  </div>
+  <div style='display:flex;flex-direction:column;'>
+    <div style='font-size:12px;color:#888;'>漲跌</div>
+    <div style='font-family:JetBrains Mono;font-size:20px;font-weight:700;color:{漲色};'>
+      {漲符} {今漲:+,.2f} ({今漲_pct:+.2f}%)
+    </div>
+  </div>
+  <div style='display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,0.1);padding-left:24px;'>
+    <div style='font-size:12px;color:#888;'>單量</div>
+    <div style='font-family:JetBrains Mono;font-size:18px;color:#fff;'>{今單量_億:,.0f} 億</div>
+  </div>
+  <div style='display:flex;flex-direction:column;'>
+    <div style='font-size:12px;color:#888;'>20 日均量</div>
+    <div style='font-family:JetBrains Mono;font-size:18px;color:#fff;'>{過去20_億:,.0f} 億</div>
+  </div>
+  <div style='display:flex;flex-direction:column;margin-left:auto;text-align:right;'>
+    <div style='font-size:12px;color:#888;'>{日期str}</div>
+    <div style='font-family:JetBrains Mono;font-size:14px;color:#A855F7;'>更新 {datetime.now().strftime('%H:%M:%S')}</div>
+  </div>
+</div>
+
+<div style='background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 16px;margin-bottom:14px;
+            display:flex;flex-wrap:wrap;gap:20px;font-family:JetBrains Mono;font-size:13px;'>
+  <span style='color:#888;'>開 <span style='color:#fff;font-weight:700;'>{今.get("open", 今價):,.2f}</span></span>
+  <span style='color:#888;'>高 <span style='color:#22C55E;font-weight:700;'>{今.get("high", 今價):,.2f}</span></span>
+  <span style='color:#888;'>低 <span style='color:#EF4444;font-weight:700;'>{今.get("low", 今價):,.2f}</span></span>
+  <span style='color:#888;'>收 <span style='color:#FBBF24;font-weight:700;'>{今價:,.2f}</span></span>
+  <span style='border-left:1px solid rgba(255,255,255,0.1);padding-left:20px;color:#888;'>5MA <span style='color:#22C55E;font-weight:700;'>{ma5_v:,.2f}</span></span>
+  <span style='color:#888;'>20MA <span style='color:#A855F7;font-weight:700;'>{ma20_v:,.2f}</span></span>
+  <span style='color:#888;'>60MA <span style='color:#FBBF24;font-weight:700;'>{ma60_v:,.2f}</span></span>
+</div>
+""", unsafe_allow_html=True)
+
     fig_k = go.Figure(data=[go.Candlestick(
         x=[d["date"][:10] for d in data],
         open=[d.get("open", d["close"]) for d in data],
@@ -1026,6 +1094,18 @@ if k_data.get("data"):
         decreasing_line_color='#EF4444',
         name="加權指數",
     )])
+
+    # 加 5MA 線（補仿方舟）
+    if len(data) >= 5:
+        ma5 = []
+        dates_all = [d["date"][:10] for d in data]
+        for i in range(len(data)):
+            if i >= 4:
+                ma5.append(sum(d["close"] for d in data[i-4:i+1]) / 5)
+            else:
+                ma5.append(None)
+        fig_k.add_trace(go.Scatter(x=dates_all, y=ma5, name="5MA",
+                                    line=dict(color='#22C55E', width=1)))
 
     # 加 MA20 / MA60
     if len(data) >= 60:
