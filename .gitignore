@@ -1,0 +1,43 @@
+# ─── 敏感資料（絕對不上傳）───
+.env
+*.env
+.env.*
+**/secrets.toml
+!**/secrets.toml.example
+**/portfolio*.json
+**/sylvie*.json
+**/api_key*
+**/credentials*
+*.key
+*.pem
+
+# ─── Python ───
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# ─── 大檔案 ───
+*.log
+*.tmp
+*.bak
+*.sqlite
+*.db
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Build / Dist ───
+build/
+dist/
+*.egg-info/
