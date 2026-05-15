@@ -8,6 +8,12 @@ REM   2. if code changed, git push to lis-cloud-dashboard
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM Read GITHUB_TOKEN from .env for git push auth
+set "GH_TOKEN="
+for /f "usebackq tokens=1,* delims==" %%a in ("..\API\.env") do (
+    if "%%a"=="GITHUB_TOKEN" set "GH_TOKEN=%%b"
+)
+
 echo ============================================
 echo  LIS Cloud Sync
 echo ============================================
@@ -32,8 +38,20 @@ if errorlevel 1 (
     if "!MSG!"=="" set "MSG=Update LIS cloud"
     git add .
     git commit -m "!MSG!"
-    git push
-    echo [OK] Pushed. Streamlit Cloud will redeploy in 1 min.
+
+    if "!GH_TOKEN!"=="" (
+        echo [WARN] GITHUB_TOKEN not in .env, trying plain push...
+        git push
+    ) else (
+        echo [INFO] Using token from .env...
+        git push https://LISInvestmentux:!GH_TOKEN!@github.com/LISInvestmentux/lis-cloud-dashboard.git HEAD:main
+    )
+
+    if errorlevel 1 (
+        echo [ERROR] Push failed. Check GITHUB_TOKEN in .env
+    ) else (
+        echo [OK] Pushed. Streamlit Cloud will redeploy in 1 min.
+    )
 ) else (
     echo [INFO] No code change, only Gist synced.
 )
