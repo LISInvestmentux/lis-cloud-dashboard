@@ -214,26 +214,69 @@ def 建構Flex卡(覆盤: dict) -> dict:
             "contents": rows,
         })
 
-    # 2. 當日總損益（最重要的 KPI）
+    # 2. 今日抗跌指標（Phase 33.3 反焦慮設計）
+    # 用「相對大盤」取代「絕對金額」，避免每天看數字焦慮
     當日 = 覆盤.get("持股當日", {})
     當日損益 = 當日.get("當日總損益_twd", 0)
-    if 當日損益:
-        色_kpi = C["bull"] if 當日損益 >= 0 else C["bear"]
-        bg_kpi = bg["好"] if 當日損益 >= 0 else bg["壞"]
-        body.append({
-            "type": "box", "layout": "vertical", "spacing": "xs",
-            "margin": "md", "paddingAll": "12px",
-            "backgroundColor": bg_kpi,
-            "cornerRadius": "8px",
-            "contents": [
-                文字(f"💰 今日帳面損益", size="md",
-                     color=色_kpi, weight="bold"),
-                文字(f"NT$ {當日損益:+,.0f}", size="xxl",
-                     color=色_kpi, weight="bold"),
-                文字(f"{當日.get('持股檔數', 0)} 檔台股", size="xs",
-                     color=C["text_dim"]),
-            ],
-        })
+    持股檔數 = 當日.get("持股檔數", 0)
+    大盤_加權 = 覆盤.get("大盤", {}).get("加權", {}).get("當日_pct", 0)
+
+    # 算「你的當日 %」(用 TOP/BOTTOM 平均概算)
+    所有當日 = (當日.get("TOP3", []) + 當日.get("BOTTOM3", []))
+    if 所有當日 and 持股檔數 > 0:
+        # 用市值加權平均
+        市值權_合計 = sum(r.get("現價", 0) * r.get("shares", 0) for r in 所有當日)
+        if 市值權_合計 > 0:
+            你的當日_pct = sum(
+                r.get("當日_pct", 0) * r.get("現價", 0) * r.get("shares", 0)
+                for r in 所有當日) / 市值權_合計
+        else:
+            你的當日_pct = sum(r.get("當日_pct", 0) for r in 所有當日) / len(所有當日)
+    else:
+        你的當日_pct = 0
+
+    抗跌 = 你的當日_pct - 大盤_加權  # 正 = 你比大盤強
+
+    # 顏色決定（正向強化）
+    if 抗跌 > 0.5:
+        標題 = "🛡️ 今日抗跌"
+        色_kpi = C["bull"]
+        bg_kpi = bg["好"]
+        副 = f"你 {你的當日_pct:+.2f}% / 大盤 {大盤_加權:+.2f}%"
+        評語 = "你比大盤強 ✨"
+    elif 抗跌 > 0:
+        標題 = "🛡️ 抗跌略勝"
+        色_kpi = C["bull"]
+        bg_kpi = bg["好"]
+        副 = f"你 {你的當日_pct:+.2f}% / 大盤 {大盤_加權:+.2f}%"
+        評語 = "比大盤好一些"
+    elif 抗跌 > -0.5:
+        標題 = "📊 跟跌"
+        色_kpi = C["text_main"]  # 中性灰
+        bg_kpi = "#FFFFFF0A"
+        副 = f"你 {你的當日_pct:+.2f}% / 大盤 {大盤_加權:+.2f}%"
+        評語 = "與大盤同步"
+    else:
+        標題 = "⚠️ 弱於大盤"
+        色_kpi = C["wait"]  # 黃色非紅，減焦慮
+        bg_kpi = bg["預警"]
+        副 = f"你 {你的當日_pct:+.2f}% / 大盤 {大盤_加權:+.2f}%"
+        評語 = "今天弱於大盤，明天觀察"
+
+    body.append({
+        "type": "box", "layout": "vertical", "spacing": "xs",
+        "margin": "md", "paddingAll": "12px",
+        "backgroundColor": bg_kpi,
+        "cornerRadius": "8px",
+        "contents": [
+            文字(標題, size="md", color=色_kpi, weight="bold"),
+            文字(f"{抗跌:+.2f}%", size="xxl",
+                 color=色_kpi, weight="bold"),
+            文字(副, size="xs", color=C["text_dim"]),
+            文字(f"{評語} · {持股檔數} 檔台股",
+                 size="xxs", color=C["text_subtle"]),
+        ],
+    })
 
     # 3. 持股 TOP3 / BOTTOM3
     TOP3 = 當日.get("TOP3", [])

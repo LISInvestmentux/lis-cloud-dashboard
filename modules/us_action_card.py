@@ -392,18 +392,24 @@ def 建構Flex卡(行動: dict) -> dict:
         rows = [文字("📅 即將入帳（美股）", size="md",
                      color=C["bull"], weight="bold")]
         for f in 流入:
+            # 容錯：拆兩筆撥款時可能只有 net_twd 沒 net_usd
+            usd = f.get('amount_usd')
+            twd = f.get('amount_twd') or 0
+            if usd is None or usd == 0:
+                # 推估 USD：用匯率 ≈ 31.5 回推
+                usd = twd / (行動.get('USD_TWD') or 31.5)
             rows.append({
                 "type": "box", "layout": "horizontal",
                 "contents": [
                     文字(f"{f['date']} {f['symbol']}",
                          size="sm", color=C["text_main"], flex=5),
-                    文字(f"+${f['amount_usd']:,.0f}",
+                    文字(f"+${usd:,.0f}",
                          size="sm", color=C["bull"],
                          align="end", weight="bold", flex=4),
                 ],
             })
-            if f.get("amount_twd"):
-                rows.append(文字(f"  ≈ NT$ {f['amount_twd']:,.0f}",
+            if twd:
+                rows.append(文字(f"  ≈ NT$ {twd:,.0f}",
                                  size="xxs", color=C["text_dim"]))
         body.append({
             "type": "box", "layout": "vertical", "spacing": "xs",
