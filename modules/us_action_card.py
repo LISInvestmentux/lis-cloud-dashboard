@@ -86,20 +86,30 @@ def 組今夜行動() -> dict:
     美股持股 = [p for p in 真倉["持股"]
                 if not p.get("error") and p.get("is_us")]
 
-    # 1. 必做 — 美股達 +15% / 破 -3%
+    # 1. 必做 — 美股達 +15% / ATR 鎖利 / 破 -3%
     必做 = []
     for r in 真倉["警示"].get("達停利", []):
         if not r.get("is_us"):
             continue
         賣股數 = max(1, r["shares"] // 2)
+        # 區分 +15% 達標 vs ATR 鎖利
+        警示類型 = r.get("警示_類型", "TAKE_PROFIT")
+        if 警示類型 == "ATR_LOCK_PROFIT":
+            類型 = "🔵 ATR 鎖利（吊燈停損觸發）"
+            atr資訊 = r.get("ATR吊燈", {})
+            說明 = f"已破吊燈 ${atr資訊.get('停損價', '?')} / HWM ${atr資訊.get('HWM', '?')}"
+        else:
+            類型 = "🎯 達 +15% 停利"
+            說明 = ""
         必做.append({
-            "類型": "🎯 達 +15% 停利",
+            "類型": 類型,
             "symbol": r["symbol"], "name": r.get("name", "")[:10],
             "pnl_pct": r["pnl_pct"],
             "現價_usd": r["current_price"],
             "動作": f"賣 {賣股數} 股 @ ${r['current_price']:.2f}",
             "預估落袋_usd": round(賣股數 * r["current_price"], 2),
             "預估落袋_twd": round(賣股數 * r["current_price"] * USD_TWD, 0),
+            "說明": 說明,
         })
     for r in 真倉["警示"].get("破停損", []):
         if not r.get("is_us"):

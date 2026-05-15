@@ -115,12 +115,17 @@ def 組今日行動() -> dict:
         賣股數 = max(1, r["shares"] // 2)
         市場 = "美股" if r.get("is_us") else "台股"
         貨幣 = "$" if r.get("is_us") else "NT$"
+        # 區分 +15% 達標 vs ATR 鎖利
+        警示類型 = r.get("警示_類型", "TAKE_PROFIT")
+        類型 = ("🔵 ATR 鎖利（吊燈停損）" if 警示類型 == "ATR_LOCK_PROFIT"
+                else "🎯 達 +15% 停利")
         必做.append({
-            "類型": "🎯 達 +15% 停利",
+            "類型": 類型,
             "symbol": r["symbol"], "name": r.get("name", "")[:8],
             "pnl_pct": r["pnl_pct"],
             "動作": f"賣 {賣股數} 股 @ {貨幣}{r['current_price']:.2f}",
             "預估落袋": round(賣股數 * r["current_price"] * (USD_TWD if r.get("is_us") else 1), 0),
+            "ATR吊燈": r.get("ATR吊燈"),
         })
     for r in 真倉["警示"].get("破停損", []):
         市場 = "美股" if r.get("is_us") else "台股"
@@ -216,6 +221,17 @@ def 組今日行動() -> dict:
     except Exception as e:
         print(f"  ⚠️ 震盪預警失敗：{e}")
 
+    # 8.5 FRED 美國總經（Phase 36.1 — 黑天鵝預警根本指標）
+    fred = None
+    try:
+        try:
+            from . import fred_data
+        except ImportError:
+            import fred_data
+        fred = fred_data.全套總經分析()
+    except Exception as e:
+        print(f"  ⚠️ FRED 抓取失敗（可能未設 FRED_API_KEY）：{e}")
+
     # 9. 資金量適配（Phase 33.2 — 警告不適合的戰法）
     資金檢查 = None
     try:
@@ -226,6 +242,66 @@ def 組今日行動() -> dict:
         資金檢查 = capital_size_check.全面適配檢查(總資產)
     except Exception as e:
         print(f"  ⚠️ 資金量檢查失敗：{e}")
+
+    # 10. Q4 散戶反指（Phase 36.5）
+    散戶反指 = None
+    try:
+        try:
+            from . import sentiment_indicator
+        except ImportError:
+            import sentiment_indicator
+        散戶反指 = sentiment_indicator.散戶反指評分()
+    except Exception as e:
+        pass
+
+    # 11. 左側買回機會（Phase 36.8 — Sylvie 教學）
+    買回機會 = []
+    try:
+        try:
+            from . import left_side_rebuy
+        except ImportError:
+            import left_side_rebuy
+        買回機會 = left_side_rebuy.掃描所有買回機會(cfg)
+    except Exception as e:
+        pass
+
+    # 12. 昨日新聞快取（Phase 36.9 — 自動內化）
+    今日新聞 = None
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        news_path = 專案根 / "數據" / "cache" / "daily_news" / f"{datetime.now():%Y-%m-%d}.json"
+        if not news_path.exists():
+            from datetime import timedelta
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            news_path = 專案根 / "數據" / "cache" / "daily_news" / f"{yesterday}.json"
+        if news_path.exists():
+            今日新聞 = _j.loads(news_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    # 13. 調節後重佈局（Phase 36.10 — Sylvie 教學）⭐ 最重要
+    重佈局 = None
+    try:
+        try:
+            from . import rebalance_after_sell
+        except ImportError:
+            import rebalance_after_sell
+        重佈局 = rebalance_after_sell.重佈局建議(cfg, USD_TWD)
+    except Exception as e:
+        print(f"  ⚠️ 重佈局建議失敗：{e}")
+
+    # 14. 每週位階輪動（Phase 36.12 — LIS 派吸收 Sylvie 美股輪動但降頻）
+    週輪動 = None
+    try:
+        try:
+            from . import weekly_rotation
+        except ImportError:
+            import weekly_rotation
+        # 只週一有資料，其他天回 None
+        週輪動 = weekly_rotation.週輪動建議(cfg)
+    except Exception as e:
+        print(f"  ⚠️ 週輪動失敗：{e}")
 
     return {
         "必做": 必做,
@@ -242,6 +318,12 @@ def 組今日行動() -> dict:
         "累計已實現": 累計,
         "震盪預警": 震盪,
         "資金檢查": 資金檢查,
+        "FRED總經": fred,
+        "散戶反指": 散戶反指,
+        "左側買回": 買回機會,
+        "今日新聞": 今日新聞,
+        "重佈局": 重佈局,
+        "週輪動": 週輪動,
     }
 
 
@@ -574,6 +656,62 @@ def 建構Flex卡(行動: dict) -> dict:
             "backgroundColor": bg["不該追"],
             "cornerRadius": "8px",
             "contents": 資_rows,
+        })
+
+    # 6.7 美國總經（Phase 36.1 — FRED）
+    fred = 行動.get("FRED總經")
+    if fred and fred.get("fed_rate"):
+        # 事件預警（FOMC 14 天內）優先
+        事件 = fred.get("事件預警", [])
+        if 事件:
+            for e in 事件[:1]:
+                色_e = C["bear"] if e["色"] == "bear" else C["wait"]
+                body.append({
+                    "type": "box", "layout": "vertical", "spacing": "xs",
+                    "margin": "md", "paddingAll": "10px",
+                    "backgroundColor": bg["預警"],
+                    "cornerRadius": "8px",
+                    "contents": [
+                        文字(f"{e['類型']}", size="md",
+                             color=色_e, weight="bold"),
+                        文字(f"{e['日期']} (還 {e['天數']} 天)",
+                             size="sm", color=C["text_main"]),
+                        文字(f"→ {e['建議'][:40]}",
+                             size="xs", color=C["accent"], wrap=True),
+                    ],
+                })
+
+        # 總經 row
+        spread = fred.get("10y_2y_spread")
+        cpi_yoy = fred.get("cpi_yoy")
+        fed_rate = fred.get("fed_rate")
+        t10y = fred.get("10y_treasury")
+        倒掛 = fred.get("倒掛分析", {})
+        色_倒 = (C["bear"] if 倒掛.get("色") == "bear"
+                 else C["wait"] if 倒掛.get("色") == "wait"
+                 else C["bull"])
+        body.append({
+            "type": "box", "layout": "vertical", "spacing": "xs",
+            "margin": "md", "paddingAll": "10px",
+            "backgroundColor": "#FFFFFF0A",
+            "cornerRadius": "8px",
+            "contents": [
+                文字("🇺🇸 美國總經", size="sm",
+                     color=C["text_dim"], weight="bold"),
+                {
+                    "type": "box", "layout": "horizontal",
+                    "contents": [
+                        文字(f"Fed {fed_rate:.2f}%" if fed_rate else "Fed ?",
+                             size="xs", color=C["text_main"], flex=2),
+                        文字(f"CPI {cpi_yoy:.1f}%" if cpi_yoy else "CPI ?",
+                             size="xs", color=C["text_main"], flex=2),
+                        文字(f"10Y {t10y:.2f}%" if t10y else "10Y ?",
+                             size="xs", color=C["text_main"], flex=2),
+                    ],
+                },
+                文字(f"{倒掛.get('等級', '')} · {倒掛.get('說明', '')[:40]}",
+                     size="xxs", color=色_倒, wrap=True),
+            ],
         })
 
     # 7. 整體狀況 footer

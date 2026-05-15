@@ -995,6 +995,156 @@ with col_6:
 
 
 # ════════════════════════════════════════════
+# Phase 36.14：K 線 + 風控分數變化圖（仿方舟）
+# ════════════════════════════════════════════
+st.markdown("<div class='section-title'><h2>📈 大盤 K 線 + 風控變化</h2><span class='badge'>過熱不需亂追，看風控怎麼變化</span></div>", unsafe_allow_html=True)
+
+@st.cache_data(ttl=600)
+def 抓K線風控():
+    """抓加權指數 90 天 K 線 + LIS 風控分數變化"""
+    out = {"data": [], "marks": []}
+    try:
+        from modules import technical as _t
+        h, _ = _t.取得每日股價("^TWII", period="3mo")
+        if not h:
+            return out
+        # 新→舊 反轉
+        data = list(reversed(h))
+        out["data"] = data
+
+        # 從 fg_history 抓風控分數
+        fg_path = 專案根.parent / "數據" / "cache" / "fg_history.json"
+        fg_hist = []
+        if fg_path.exists():
+            fg_hist = json.loads(fg_path.read_text(encoding="utf-8"))
+
+        # 在 data 中找對應 F&G 分數的日期，產生標記
+        # 簡化：用 RSI/Close 變化算「風控警戒分」
+        marks = []
+        for i, d in enumerate(data):
+            if i < 14 or i % 7 != 0:  # 每 7 天打 1 點
+                continue
+            # 風控分 = (RSI + 漲跌幅累積) 簡化
+            recent = data[i-14:i+1]
+            highs = [r["high"] for r in recent]
+            lows = [r["low"] for r in recent]
+            closes = [r["close"] for r in recent]
+            close_now = closes[-1]
+            high_max = max(highs)
+            # 風控分 = 距高點接近度（越接近 = 越熱）
+            風控 = (close_now / high_max) * 100
+            marks.append({
+                "date": d["date"][:10],
+                "close": close_now,
+                "high": high_max,
+                "score": round(風控, 1),
+            })
+
+        out["marks"] = marks[-5:]  # 顯示最近 5 個風控點
+    except Exception as e:
+        out["error"] = str(e)
+    return out
+
+
+k_data = 抓K線風控()
+
+if k_data.get("data"):
+    data = k_data["data"]
+    marks = k_data.get("marks", [])
+
+    fig_k = go.Figure(data=[go.Candlestick(
+        x=[d["date"][:10] for d in data],
+        open=[d.get("open", d["close"]) for d in data],
+        high=[d.get("high", d["close"]) for d in data],
+        low=[d.get("low", d["close"]) for d in data],
+        close=[d["close"] for d in data],
+        increasing_line_color='#22C55E',
+        decreasing_line_color='#EF4444',
+        name="加權指數",
+    )])
+
+    # 加 MA20 / MA60
+    if len(data) >= 60:
+        ma20 = []
+        ma60 = []
+        dates = [d["date"][:10] for d in data]
+        for i in range(len(data)):
+            if i >= 19:
+                ma20.append(sum(d["close"] for d in data[i-19:i+1]) / 20)
+            else:
+                ma20.append(None)
+            if i >= 59:
+                ma60.append(sum(d["close"] for d in data[i-59:i+1]) / 60)
+            else:
+                ma60.append(None)
+        fig_k.add_trace(go.Scatter(x=dates, y=ma20, name="MA20",
+                                    line=dict(color='#A855F7', width=1.5)))
+        fig_k.add_trace(go.Scatter(x=dates, y=ma60, name="MA60",
+                                    line=dict(color='#FBBF24', width=1.5)))
+
+    # 加風控圓圈標記
+    for m in marks:
+        色 = ("#EF4444" if m["score"] >= 95 else
+              "#F59E0B" if m["score"] >= 85 else
+              "#22C55E")
+        fig_k.add_annotation(
+            x=m["date"], y=m["close"] * 1.02,
+            text=f"<b>{m['score']:.1f}</b>",
+            showarrow=True, arrowhead=2, arrowcolor=色,
+            arrowwidth=2, arrowsize=1.2,
+            font=dict(color=色, size=14, family='JetBrains Mono'),
+            bgcolor="rgba(0,0,0,0.7)",
+            bordercolor=色, borderwidth=1.5,
+            borderpad=6,
+        )
+
+    fig_k.update_layout(
+        title=dict(
+            text='<b>加權指數 K 線 — 風控分數變化（接近高點 % = 過熱度）</b>',
+            font=dict(color='#FBBF24', size=14)),
+        height=480,
+        xaxis_rangeslider_visible=False,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='#E5E7EB'),
+        legend=dict(bgcolor='rgba(0,0,0,0.3)',
+                     bordercolor='rgba(255,255,255,0.1)'),
+        xaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+        yaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
+        margin=dict(l=10, r=10, t=50, b=10),
+    )
+    st.plotly_chart(fig_k, use_container_width=True,
+                     config={'displayModeBar': False})
+
+    # 風控解讀
+    if marks:
+        latest = marks[-1]
+        if latest["score"] >= 95:
+            st.markdown(
+                f"<div style='padding:12px;background:rgba(239,68,68,0.1);"
+                f"border-left:3px solid #EF4444;border-radius:6px;margin-top:10px;'>"
+                f"🚨 <b>當前風控 {latest['score']:.1f}</b> — 過熱區（接近高點 {latest['score']:.1f}%）"
+                f"，建議減碼、不追高</div>",
+                unsafe_allow_html=True)
+        elif latest["score"] >= 85:
+            st.markdown(
+                f"<div style='padding:12px;background:rgba(245,158,11,0.1);"
+                f"border-left:3px solid #F59E0B;border-radius:6px;margin-top:10px;'>"
+                f"⚠️ <b>當前風控 {latest['score']:.1f}</b> — 偏高（接近高點 {latest['score']:.1f}%）"
+                f"，留意警戒</div>",
+                unsafe_allow_html=True)
+        else:
+            st.markdown(
+                f"<div style='padding:12px;background:rgba(34,197,94,0.1);"
+                f"border-left:3px solid #22C55E;border-radius:6px;margin-top:10px;'>"
+                f"✅ <b>當前風控 {latest['score']:.1f}</b> — 健康（距高點 {100-latest['score']:.1f}%）"
+                f"</div>",
+                unsafe_allow_html=True)
+else:
+    st.info("K 線資料載入中...")
+
+
+# ════════════════════════════════════════════
 # Daily Brief
 # ════════════════════════════════════════════
 st.markdown("<div class='section-title'><h2>🎯 今日重點</h2><span class='badge'>Daily Brief</span></div>", unsafe_allow_html=True)

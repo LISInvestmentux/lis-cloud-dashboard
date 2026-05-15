@@ -147,8 +147,49 @@ def 追蹤真倉(設定: dict,
         停損鐵律字 = (f"守 {本檔停損}% 鐵律"
                        + ("（美股波動大，較嚴）" if is_us else ""))
 
+        # Phase 36.2 — ATR 吊燈停損（鎖利警示）
+        # 漲幅 ≥ 5% 才啟用（沒漲的部位用傳統 -5%）
+        ATR鎖利觸發 = False
+        ATR資訊 = None
+        if 漲幅 >= 5:
+            try:
+                try:
+                    from . import atr_stoploss
+                except ImportError:
+                    import atr_stoploss
+                ATR資訊 = atr_stoploss.算動態停損(
+                    sym, 成本, 現價,
+                    name=p.get("name", ""),
+                    buy_date=None)  # 沒 buy_date 就用過去最高
+                if ATR資訊.get("觸發") and ATR資訊.get("ATR"):
+                    # 已破吊燈停損 → 鎖利提示
+                    rec["ATR吊燈"] = ATR資訊
+                    ATR鎖利觸發 = True
+            except Exception:
+                pass
+
+        # Phase 36.4 — Strategy D 階段追蹤
+        # 若已分段賣過，提高 next_target_pct（避免重複推「達 +15%」）
+        strat_d_state = 設定.get("strategy_d_state", {}).get(sym, {})
+        本檔停利 = strat_d_state.get("next_target_pct", 停利_PCT)
+
+        # Phase 36.7 — Q3 主升段判定（延後賣）
+        if 漲幅 >= 停利_PCT - 3 and not strat_d_state:
+            # 接近 +15% 時才跑 Q3 主升段判斷（省 API call）
+            try:
+                try:
+                    from . import main_uptrend_detector
+                except ImportError:
+                    import main_uptrend_detector
+                判 = main_uptrend_detector.判定(sym)
+                if 判.get("是主升段"):
+                    本檔停利 = 判["建議下次停利_pct"]
+                    rec["主升段判定"] = 判
+            except Exception:
+                pass
+
         # 警示分類 + Phase 11 雙策略建議
-        if 漲幅 >= 停利_PCT:
+        if 漲幅 >= 本檔停利:
             rec["警示_類型"] = "TAKE_PROFIT"
             # 策略 A: 全賣 / 策略 D: 賣 50%
             rec["策略A建議"] = {"動作": "全賣", "股數": 股數,
@@ -160,6 +201,19 @@ def 追蹤真倉(設定: dict,
                                   "剩餘": 股數 - D股數,
                                   "下一階段": f"剩 {股數 - D股數} 股等 +30% 再賣 25%"}
             達停利.append(rec)
+        elif ATR鎖利觸發 and 漲幅 >= 8:
+            # Phase 36.2 — 漲幅 ≥ 8% 且破 ATR 吊燈 → 鎖利警示
+            # (8% 是個閾值，避免雜訊)
+            rec["警示_類型"] = "ATR_LOCK_PROFIT"
+            鎖利股數 = max(1, int(股數 * 0.5))
+            rec["策略A建議"] = {"動作": f"鎖利賣 {鎖利股數} 股",
+                                  "股數": 鎖利股數,
+                                  "落袋_twd": round(現價 * 鎖利股數 * 倍率, 0)}
+            rec["策略D建議"] = {"動作": "ATR 吊燈鎖利（已破停損價）",
+                                  "股數": 鎖利股數,
+                                  "落袋_twd": round(現價 * 鎖利股數 * 倍率, 0),
+                                  "下一階段": ATR資訊.get("說明", "")}
+            達停利.append(rec)  # 暫歸類達停利
         elif 漲幅 <= 本檔停損:
             rec["警示_類型"] = "STOP_LOSS"
             rec["策略A建議"] = {"動作": "全停損", "股數": 股數,
@@ -169,7 +223,8 @@ def 追蹤真倉(設定: dict,
                                   "落袋_twd": round(現價 * 股數 * 倍率, 0),
                                   "下一階段": 停損鐵律字 + "，不分批"}
             破停損.append(rec)
-        elif 漲幅 >= 接近停利_PCT:
+        elif 漲幅 >= 接近停利_PCT and not strat_d_state:
+            # Phase 36.4 — 有 strategy_d_state 表示已分段管理，跳過 NEAR_TP
             rec["警示_類型"] = "NEAR_TP"
             達停利_股數 = 股數
             D股數 = int(股數 * 0.5)

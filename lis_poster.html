@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>LIS 宣傳圖 — 4 版本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a22;
+    font-family: 'Inter', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    color: #fff;
+    padding: 40px;
+  }
+  h1.page-title {
+    text-align: center;
+    font-size: 24px;
+    color: #FBBF24;
+    margin-bottom: 30px;
+    font-weight: 800;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px;
+    max-width: 2280px;
+    margin: 0 auto;
+  }
+  .poster {
+    width: 1080px;
+    height: 1080px;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    transform: scale(0.45);
+    transform-origin: top left;
+    margin-bottom: -595px;
+  }
+  /* hover 放大 */
+  .poster-wrap { width: 486px; height: 486px; }
+  .poster-wrap .label {
+    text-align: center;
+    color: #FBBF24;
+    font-weight: 800;
+    margin-top: 10px;
+  }
+
+  /* ============ 版本 A：招商風 ============ */
+  .vA {
+    padding: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .vA .logo {
+    font-size: 280px;
+    font-weight: 900;
+    font-family: 'Inter';
+    background: linear-gradient(135deg, #FBBF24 0%, #A855F7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 0.9;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .vA .logo::after {
+    content: '';
+    position: absolute;
+    top: 30px;
+    right: 100px;
+    width: 60px;
+    height: 60px;
+    background: #22C55E;
+    border-radius: 50%;
+    box-shadow: 0 0 80px #22C55E;
+  }
+  .vA .brand {
+    font-size: 56px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
+  }
+  .vA .tagline-en {
+    font-size: 32px;
+    color: #888;
+    font-weight: 600;
+    margin-bottom: 60px;
+    letter-spacing: 0.05em;
+  }
+  .vA .stats {
+    background: rgba(251,191,36,0.05);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 40px;
+  }
+  .vA .stat-row {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 24px;
+  }
+  .vA .stat-row:last-child { margin-bottom: 0; }
+  .vA .stat-icon { font-size: 36px; margin-right: 20px; }
+  .vA .stat-num {
+    font-family: 'JetBrains Mono';
+    font-size: 56px;
+    font-weight: 900;
+    color: #FBBF24;
+    margin-right: 16px;
+    min-width: 200px;
+  }
+  .vA .stat-label {
+    font-size: 28px;
+    color: #ccc;
+    font-weight: 600;
+  }
+  .vA .footer {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .vA .footer-left {
+    font-size: 30px;
+    color: #fff;
+    font-weight: 700;
+  }
+  .vA .footer-right {
+    font-family: 'JetBrains Mono';
+    font-size: 22px;
+    color: #A855F7;
+  }
+
+  /* ============ 版本 B：對比派 ============ */
+  .vB {
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+  }
+  .vB .title {
+    font-size: 60px;
+    font-weight: 900;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .vB .sub {
+    font-size: 28px;
+    color: #888;
+    text-align: center;
+    margin-bottom: 50px;
+  }
+  .vB .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    flex: 1;
+  }
+  .vB .col {
+    background: rgba(255,255,255,0.02);
+    border-radius: 20px;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+  }
+  .vB .col-bad { border: 2px solid rgba(239,68,68,0.3); }
+  .vB .col-good { border: 2px solid rgba(34,197,94,0.3); }
+  .vB .col-title {
+    font-size: 36px;
+    font-weight: 900;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  .vB .col-bad .col-title { color: #EF4444; }
+  .vB .col-good .col-title { color: #22C55E; }
+  .vB .item {
+    font-size: 28px;
+    padding: 16px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    color: #ddd;
+  }
+  .vB .item:last-child { border-bottom: none; }
+  .vB .summary {
+    text-align: center;
+    font-size: 38px;
+    font-weight: 900;
+    margin-top: 40px;
+    background: linear-gradient(90deg, #FBBF24, #A855F7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .vB .brand-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 26px;
+    color: #888;
+  }
+
+  /* ============ 版本 C：故事派 ============ */
+  .vC {
+    padding: 100px 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: radial-gradient(ellipse at top right, rgba(168,85,247,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at bottom left, rgba(251,191,36,0.1) 0%, transparent 60%),
+                #000;
+  }
+  .vC .when {
+    font-size: 32px;
+    color: #A855F7;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .vC .ask {
+    font-size: 32px;
+    color: #fff;
+    margin-bottom: 50px;
+  }
+  .vC .quote {
+    font-size: 56px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.4;
+    margin-bottom: 60px;
+    border-left: 8px solid #FBBF24;
+    padding-left: 30px;
+  }
+  .vC .answer {
+    font-size: 32px;
+    color: #ddd;
+    margin-bottom: 12px;
+  }
+  .vC .lis-name {
+    font-size: 88px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #FBBF24, #22C55E, #A855F7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 40px;
+    letter-spacing: -0.02em;
+  }
+  .vC .features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 50px;
+  }
+  .vC .feature {
+    font-size: 26px;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+  }
+  .vC .feature::before {
+    content: '▶';
+    color: #FBBF24;
+    margin-right: 16px;
+    font-size: 20px;
+  }
+  .vC .cta {
+    background: linear-gradient(90deg, rgba(251,191,36,0.1), rgba(168,85,247,0.1));
+    border: 1px solid rgba(251,191,36,0.3);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+  }
+  .vC .cta-text {
+    font-size: 26px;
+    color: #FBBF24;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .vC .url {
+    font-family: 'JetBrains Mono';
+    font-size: 22px;
+    color: #888;
+  }
+
+  /* ============ 版本 D：極簡派 Apple ============ */
+  .vD {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px;
+  }
+  .vD .big-logo {
+    font-size: 480px;
+    font-weight: 900;
+    font-family: 'Inter';
+    background: linear-gradient(180deg, #FBBF24 0%, #A855F7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 0.85;
+    margin-bottom: 30px;
+    letter-spacing: -0.05em;
+    position: relative;
+  }
+  .vD .big-logo::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    right: -20px;
+    width: 80px;
+    height: 80px;
+    background: #22C55E;
+    border-radius: 50%;
+    box-shadow: 0 0 100px #22C55E;
+  }
+  .vD .sub-name {
+    font-size: 56px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 80px;
+    letter-spacing: -0.02em;
+  }
+  .vD .tags {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-size: 36px;
+    color: #888;
+    font-weight: 600;
+    text-align: center;
+  }
+  .vD .tags .highlight { color: #FBBF24; }
+  .vD .by {
+    margin-top: 80px;
+    font-size: 22px;
+    color: #555;
+    font-family: 'JetBrains Mono';
+  }
+</style>
+</head>
+<body>
+<h1 class="page-title">📐 LIS Investment 宣傳圖 — 4 版本（每張 1080×1080，已縮放至 45%）</h1>
+
+<div class="grid">
+
+  <!-- ========== 版本 A：招商風 ========== -->
+  <div>
+    <div class="poster-wrap">
+      <div class="poster vA">
+        <div>
+          <div class="logo">L</div>
+          <div class="brand">LIS Investment</div>
+          <div class="tagline-en">Life Is Shit · Build a System That Sleeps for You</div>
+        </div>
+
+        <div class="stats">
+          <div class="stat-row">
+            <span class="stat-icon">⚡</span>
+            <span class="stat-num">4</span>
+            <span class="stat-label">天 — 從 0 到完整系統</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon">🧩</span>
+            <span class="stat-num">71</span>
+            <span class="stat-label">個 Python 模組</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon">🔌</span>
+            <span class="stat-num">11</span>
+            <span class="stat-label">個 API 整合</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon">🎯</span>
+            <span class="stat-num">8</span>
+            <span class="stat-label">層獨立決策</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon">❌</span>
+            <span class="stat-num">0</span>
+            <span class="stat-label">飆股名單</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="footer-left">不是賺最多<br>是夜晚能睡</div>
+          <div class="footer-right">by Ryan · 二月森<br>lis-ryan-2026.streamlit.app</div>
+        </div>
+      </div>
+    </div>
+    <div class="label">版本 A · 招商風</div>
+  </div>
+
+  <!-- ========== 版本 B：對比派 ========== -->
+  <div>
+    <div class="poster-wrap">
+      <div class="poster vB">
+        <div class="title">LIS 派 vs 散戶</div>
+        <div class="sub">同樣的市場 · 兩種命運</div>
+
+        <div class="compare">
+          <div class="col col-bad">
+            <div class="col-title">❌ 散戶</div>
+            <div class="item">追飆股名單</div>
+            <div class="item">FOMO 買在高點</div>
+            <div class="item">-50% 凍住不賣</div>
+            <div class="item">晚上睡不著</div>
+            <div class="item">聽老師喊單</div>
+            <div class="item">1 年虧光</div>
+          </div>
+          <div class="col col-good">
+            <div class="col-title">✅ LIS 派</div>
+            <div class="item">看位階分數</div>
+            <div class="item">系統紀律出場</div>
+            <div class="item">+15% 鎖利分批</div>
+            <div class="item">晚上能睡</div>
+            <div class="item">8 層決策驗證</div>
+            <div class="item">8 年複利</div>
+          </div>
+        </div>
+
+        <div class="summary">規則 > 直覺 · 複利 > 暴利</div>
+        <div class="brand-footer">LIS Investment · by 二月森 Ryan</div>
+      </div>
+    </div>
+    <div class="label">版本 B · 對比派</div>
+  </div>
+
+  <!-- ========== 版本 C：故事派 ========== -->
+  <div>
+    <div class="poster-wrap">
+      <div class="poster vC">
+        <div>
+          <div class="when">4 天前</div>
+          <div class="ask">我問自己一個問題：</div>
+          <div class="quote">「為什麼我每次都在<br>最高點 FOMO 買，<br>最低點恐慌賣？」</div>
+          <div class="answer">所以我做了</div>
+          <div class="lis-name">LIS</div>
+          <div class="features">
+            <div class="feature">用工程師思維建決策框架</div>
+            <div class="feature">規則替我擋 FOMO</div>
+            <div class="feature">Sylvie 共識雙重驗證</div>
+            <div class="feature">4 天驗證 11 個假設</div>
+            <div class="feature">每天 8AM 推給我「該做什麼」</div>
+          </div>
+        </div>
+        <div class="cta">
+          <div class="cta-text">⭐ Life Is Shit. Build a System.</div>
+          <div class="url">lis-ryan-2026.streamlit.app</div>
+        </div>
+      </div>
+    </div>
+    <div class="label">版本 C · 故事派</div>
+  </div>
+
+  <!-- ========== 版本 D：極簡 Apple ========== -->
+  <div>
+    <div class="poster-wrap">
+      <div class="poster vD">
+        <div class="big-logo">LIS</div>
+        <div class="sub-name">投資作業系統</div>
+        <div class="tags">
+          <div>for people who <span class="highlight">think</span></div>
+          <div>for people who <span class="highlight">code</span></div>
+          <div>for people who <span class="highlight">sleep</span></div>
+        </div>
+        <div class="by">by Ryan · 二月森創辦人</div>
+      </div>
+    </div>
+    <div class="label">版本 D · 極簡派 (Apple 風)</div>
+  </div>
+
+</div>
+
+</body>
+</html>

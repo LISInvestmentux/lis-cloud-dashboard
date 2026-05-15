@@ -162,6 +162,25 @@ def 整合今日決策(指數: Optional[dict] = None,
                     最終金額 = 雙軌結果["最終金額_twd"]
                     雙軌備註 = f" [雙軌-{雙軌結果['決定軸']}軸]"
 
+            # Phase 36.6 — Q5 Sylvie 非對稱權重
+            try:
+                try:
+                    from . import sylvie_priority
+                except ImportError:
+                    import sylvie_priority
+                權 = sylvie_priority.非對稱權重決策(c["symbol"])
+                倍率 = 權.get("加碼倍率", 1.0)
+                if 倍率 == 0:
+                    最終股數 = 0
+                    雙軌備註 += f" [{權['情境']} 攔截]"
+                elif 倍率 > 1:
+                    最終股數 = int(最終股數 * 倍率)
+                    最終金額 = int(最終金額 * 倍率)
+                    雙軌備註 += f" [{權['情境']} ×{倍率}]"
+                c["sylvie_weight"] = 權
+            except Exception:
+                pass
+
             建議買.append({
                 "symbol": c["symbol"],
                 "name": c.get("name", ""),
