@@ -2,6 +2,7 @@
 LIS Investment Dashboard v3.0 — 專業金融儀表板
 靈感：Bloomberg Terminal + Stripe + Linear
 """
+import os
 import json
 import sys
 import io
@@ -1235,6 +1236,8 @@ with st.expander("🏆 跨來源共識排行（305 訊號）"):
                                      font=dict(color='#FBBF24')))
         fig = 套用深色主題(fig)
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    elif os.getenv("LIS_PORTFOLIO_PATH"):
+        st.info("☁️ **雲端無共識訊號資料** — 此功能需本機每日累積的 community_consensus.json。")
 
 
 with st.expander("🏆 Kelly TOP15 數學驗證核心持股"):
@@ -1269,6 +1272,8 @@ with st.expander("🏆 Kelly TOP15 數學驗證核心持股"):
         )
         fig = 套用深色主題(fig)
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    elif os.getenv("LIS_PORTFOLIO_PATH"):
+        st.info("☁️ **雲端無 Kelly 資料** — 此功能需本機每日累積的 win_rate_db.json（需 10+ 筆交易歷史）。")
 
 
 with st.expander("🎯 策略池 8 種獨立掃描"):
@@ -1283,18 +1288,33 @@ with st.expander("🎯 策略池 8 種獨立掃描"):
                       if p.get("symbol") != "AGGREGATE"}
             DCA = [it["symbol"] for it in cfg.get("long_term_dca", {}).get("items", []) if it.get("symbol")]
             結果 = strategy_pool.掃描策略池(全部, 持股代號集=持股集, DCA清單=DCA)
-        for 策名, 設 in 結果.items():
-            if 設["總數"] > 0:
-                st.markdown(f"### {設['emoji']} {策名} <span style='color:#9CA3AF;font-size:13px'>{設['總數']} 檔</span>", unsafe_allow_html=True)
-                inner = "<div class='stock-grid'>"
-                for r in 設["入選"][:4]:
-                    inner += f"""<div class='stock-card flat'>
-                    <div class='stock-sym'>{r['symbol']}</div>
-                    <div class='stock-name'>{r.get('name', '')[:14]}</div>
-                    <div style='margin-top:6px;font-size:11px;color:#9CA3AF'>位階 {r.get('位階', 0):.0f}</div>
-                    </div>"""
-                inner += "</div>"
-                st.markdown(inner, unsafe_allow_html=True)
+
+        # Phase 33.2 — 雲端 placeholder 偵測
+        is_cloud = bool(os.getenv("LIS_PORTFOLIO_PATH"))
+        總入選 = sum(設["總數"] for 設 in 結果.values())
+
+        if is_cloud and 總入選 == 0:
+            st.info(
+                "☁️ **雲端無位階資料** — 策略池需要本機每日 8AM 算出的「positional_state.json」"
+                "（VIX/RSI/MACD/位階分數等）才能掃描入選標的。\n\n"
+                "**雲端 dashboard 主要看**：部位 / 損益 / ARK gauges / 持股配置 / 累計獲利。\n\n"
+                "**想看策略池入選**：去看 8AM LINE 推播的「全息儀表板」或開本機 web_dashboard。"
+            )
+        elif 總入選 == 0:
+            st.warning("⚠️ 今日策略池無入選標的（市場觀望中）")
+        else:
+            for 策名, 設 in 結果.items():
+                if 設["總數"] > 0:
+                    st.markdown(f"### {設['emoji']} {策名} <span style='color:#9CA3AF;font-size:13px'>{設['總數']} 檔</span>", unsafe_allow_html=True)
+                    inner = "<div class='stock-grid'>"
+                    for r in 設["入選"][:4]:
+                        inner += f"""<div class='stock-card flat'>
+                        <div class='stock-sym'>{r['symbol']}</div>
+                        <div class='stock-name'>{r.get('name', '')[:14]}</div>
+                        <div style='margin-top:6px;font-size:11px;color:#9CA3AF'>位階 {r.get('位階', 0):.0f}</div>
+                        </div>"""
+                    inner += "</div>"
+                    st.markdown(inner, unsafe_allow_html=True)
 
 
 with st.expander("📐 市場底部 SOP（Sylvie 5 指標）"):
@@ -1357,7 +1377,13 @@ with st.expander("📐 市場底部 SOP（Sylvie 5 指標）"):
                     parts = d.split(" ")
                     if not is_data:
                         值 = "—"
-                        補充 = "API 待補"
+                        # Phase 33.2 — 雲端模式：台灣 TAIFEX/TWSE API 限國內 IP
+                        # 區分「真的 API 沒設」vs「雲端網路限制」
+                        is_cloud = bool(os.getenv("LIS_PORTFOLIO_PATH"))
+                        if is_cloud and key in ("Put/Call", "融資", "外資淨空"):
+                            補充 = "本機資料 ☁️"
+                        else:
+                            補充 = "API 待補"
                     elif key == "技術":
                         值 = "✓"
                         補充 = "無背離"
