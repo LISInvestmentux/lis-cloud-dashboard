@@ -1,16 +1,18 @@
 """
-LIS 早上 8AM 5 張總覽主卡（Phase 37 — 2026-05-16）
+LIS 早上 8AM 主卡（Phase 37.1 — 2026-05-16 二次整合）
 
-設計目標：user 抱怨 30+ 張卡太多 → 整合成 5 張，每張帶 LIFF 按鈕展開細節。
+設計目標：user 抱怨 5 張還是多，再整合成 3 張總卡。
 
-5 張卡：
+3 張卡：
   1. 🎯 今日行動 — 必做 / 已掛單 / 預警 / 不該追
-  2. 📊 持股 & 大盤 — 部位 + ARK 風控 + Enjoy + 處置警示 + 產業氣溫
-  3. 🌐 訊號 & 機會 — 訊號狀態 + 位階 + 黑天鵝 + 全市場發現
-  4. 👥 Sylvie & KOL 共識 — KOL 共識 + Sylvie 重押 + 朋友圈訊號
-  5. 🇺🇸 美股 & 新聞 — 美股觀察 + 新聞摘要 + AI 解釋 + 今日心法
+  2. 📊 市場總覽 — 持股&大盤 + 訊號&機會 + 美股摘要（3 合 1）
+  3. 👥 Sylvie & KOL 共識 — KOL 共識 + Sylvie 重押 + 朋友圈訊號
 
-每張卡上加 LIFF 按鈕，點下去開 Streamlit Cloud 對應 view（Phase 2b 完成 view 切換）。
+每張卡帶 LIFF 按鈕，點下去開 Streamlit Cloud 對應 section。
+
+歷史：
+- Phase 37.0 (16:50): 5 張主卡（持股大盤/訊號機會/美股新聞 各一張）
+- Phase 37.1 (17:?): user 看後再整合 → 3 張（持股+訊號+美股 合 1 張）
 """
 import os
 import sys
@@ -411,15 +413,205 @@ def _卡_美股新聞() -> dict:
     }
 
 
+def _卡_市場總覽() -> dict:
+    """卡 2 (Phase 37.1 三合一): 持股&大盤 + 訊號&機會 + 美股摘要"""
+    try:
+        from . import (capital_planner, portfolio_tracker, forex,
+                       ark_dashboard, fear_greed, technical,
+                       bottom_detector, flex_builder)
+    except ImportError:
+        import capital_planner, portfolio_tracker, forex
+        import ark_dashboard, fear_greed, technical
+        import bottom_detector, flex_builder
+
+    C = flex_builder.C
+    文字 = flex_builder.文字
+    分隔線 = flex_builder.分隔線
+
+    cfg = capital_planner.載入資金設定()
+    USD_TWD = forex.取得USD_TWD匯率(
+        fallback=cfg.get("currency_rates", {}).get("USD_TWD", 32))["rate"]
+    真倉 = portfolio_tracker.追蹤真倉(cfg, USD_TWD=USD_TWD)
+    現金 = cfg.get("current_cash_twd", 0)
+    總市值 = 真倉["總計"].get("市值_twd", 0)
+    總損益 = 真倉["總計"].get("損益_twd", 0)
+    總損益率 = 真倉["總計"].get("損益率_pct", 0)
+    總資產 = 總市值 + 現金
+
+    # F&G + ARK 風控
+    try:
+        fg = fear_greed.取得恐慌貪婪指數()
+        fg_score = fg.get("score") if fg else None
+    except Exception:
+        fg_score = None
+    try:
+        ark = ark_dashboard.整體儀表()
+        ark_score = ark.get("總分") if ark else None
+    except Exception:
+        ark_score = None
+
+    # 黑天鵝
+    try:
+        sop = bottom_detector.即時底部判定()
+        黑天鵝命中 = sop.get("命中數", 0)
+    except Exception:
+        黑天鵝命中 = 0
+
+    # 美股摘要
+    美股持股 = [p for p in 真倉["持股"]
+                if p.get("is_us") and not p.get("error")]
+    美股小計 = 真倉.get("美股小計", {})
+
+    body = []
+
+    # ─── Header ───
+    body.append({
+        "type": "box", "layout": "vertical",
+        "contents": [
+            文字("📊 市場總覽", size="xl",
+                 color=C["accent"], weight="bold"),
+            文字(f"{len(真倉['持股'])} 檔 · 總資產 NT$ {總資產:,.0f}",
+                 size="xs", color=C["text_dim"]),
+        ],
+    })
+    body.append(分隔線())
+
+    # ─── 區 1：持股摘要 ───
+    色 = C["bull"] if 總損益 >= 0 else C["bear"]
+    body.append({
+        "type": "box", "layout": "horizontal",
+        "contents": [
+            文字("總損益", size="sm", color=C["text_dim"], flex=3),
+            文字(f"{總損益:+,.0f} ({總損益率:+.2f}%)",
+                 size="md", color=色, weight="bold", align="end", flex=5),
+        ],
+    })
+    if 總資產 > 0:
+        body.append({
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                文字("現金水位", size="sm", color=C["text_dim"], flex=3),
+                文字(f"NT$ {現金:,.0f} ({現金/總資產*100:.1f}%)",
+                     size="sm", color=C["text_main"], align="end", flex=5),
+            ],
+        })
+
+    # ─── 區 2：大盤儀表（F&G + 風控 + 黑天鵝）───
+    body.append(分隔線())
+    if fg_score is not None:
+        fg_色 = (C["bear"] if fg_score > 75 else
+                C["bull"] if fg_score < 25 else C["text_main"])
+        body.append({
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                文字("F&G 恐慌貪婪", size="sm", color=C["text_dim"], flex=4),
+                文字(f"{fg_score:.0f}", size="md",
+                     color=fg_色, weight="bold", align="end", flex=2),
+            ],
+        })
+    if ark_score is not None:
+        ark_色 = (C["bear"] if ark_score >= 80 else
+                 C["wait"] if ark_score >= 60 else C["bull"])
+        body.append({
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                文字("LIS 風控分", size="sm", color=C["text_dim"], flex=4),
+                文字(f"{ark_score:.1f}", size="md",
+                     color=ark_色, weight="bold", align="end", flex=2),
+            ],
+        })
+    # 黑天鵝命中
+    body.append({
+        "type": "box", "layout": "horizontal",
+        "contents": [
+            文字("黑天鵝命中", size="sm", color=C["text_dim"], flex=4),
+            文字(f"{黑天鵝命中}/5", size="md",
+                 color=C["bull"] if 黑天鵝命中 >= 3 else C["text_main"],
+                 weight="bold", align="end", flex=2),
+        ],
+    })
+    if 黑天鵝命中 >= 3:
+        body.append(文字("🚨 加碼訊號出現 — 等彈藥就位",
+                        size="xs", color=C["bear"], weight="bold", wrap=True))
+
+    # ─── 區 3：美股摘要 ───
+    if 美股持股:
+        body.append(分隔線())
+        美股損益 = 美股小計.get("損益_usd", 0)
+        美股率 = 美股小計.get("損益率_pct", 0)
+        美色 = C["bull"] if 美股損益 >= 0 else C["bear"]
+        body.append({
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                文字(f"🇺🇸 美股 {len(美股持股)} 檔", size="sm",
+                     color=C["text_dim"], flex=3),
+                文字(f"{美股損益:+,.2f} ({美股率:+.2f}%)",
+                     size="sm", color=美色, weight="bold", align="end", flex=4),
+            ],
+        })
+        # Top 3 損益絕對值
+        sorted_持股 = sorted(美股持股,
+                            key=lambda p: -abs(p.get("pnl_pct", 0)))[:3]
+        for p in sorted_持股:
+            p色 = C["bull"] if p.get("pnl_pct", 0) >= 0 else C["bear"]
+            body.append({
+                "type": "box", "layout": "horizontal",
+                "contents": [
+                    文字(f"  {p['symbol']}", size="xs",
+                         color=C["text_main"], flex=2),
+                    文字(f"{p.get('pnl_pct', 0):+.2f}%", size="xs",
+                         color=p色, align="end", flex=2),
+                ],
+            })
+
+    # 大盤指標
+    body.append(分隔線())
+    for sym, label in [("^VIX", "VIX"), ("SPY", "SPY"), ("QQQ", "QQQ")]:
+        try:
+            歷史, _ = technical.取得每日股價(sym, period="3d")
+            if 歷史 and len(歷史) >= 2:
+                現 = 歷史[0]["close"]
+                昨 = 歷史[1]["close"]
+                當日 = (現/昨 - 1) * 100
+                色 = (C["bear"] if (sym == "^VIX" and 現 > 25)
+                      else C["bull"] if 當日 >= 0 else C["bear"])
+                body.append({
+                    "type": "box", "layout": "horizontal",
+                    "contents": [
+                        文字(label, size="xs", color=C["text_dim"], flex=2),
+                        文字(f"{現:.2f} ({當日:+.2f}%)", size="xs",
+                             color=色, align="end", flex=4),
+                    ],
+                })
+        except Exception:
+            continue
+
+    # ─── LIFF 按鈕（2 個並列）───
+    body.append(分隔線())
+    body.append(_LIFF按鈕("📊 看每檔詳細位階", "portfolio_detail"))
+    body.append(_LIFF按鈕("🌙 看美股完整覆盤", "us_close"))
+
+    return {
+        "type": "bubble", "size": "mega",
+        "body": {
+            "type": "box", "layout": "vertical", "spacing": "sm",
+            "backgroundColor": C["bg_dark"],
+            "paddingAll": "16px",
+            "contents": body,
+        },
+    }
+
+
 def 組5張主卡() -> list[dict]:
-    """產生 5 張主卡，回傳 bubble list（每個 element 是 1 個 bubble）"""
+    """產生 3 張主卡（Phase 37.1 二次整合：持股/訊號/美股合 1 張）
+
+    函式名保留為「組5張主卡」避免破壞 push_5cards.py 呼叫，內容已改 3 張。
+    """
     cards = []
     for builder, 名 in [
         (_卡_今日行動, "今日行動"),
-        (_卡_持股大盤, "持股大盤"),
-        (_卡_訊號機會, "訊號機會"),
+        (_卡_市場總覽, "市場總覽（持股+訊號+美股合 1 張）"),
         (_卡_Sylvie_KOL, "Sylvie/KOL"),
-        (_卡_美股新聞, "美股新聞"),
     ]:
         try:
             cards.append(builder())
@@ -432,14 +624,14 @@ def 組5張主卡() -> list[dict]:
 
 
 def 推5張主卡() -> bool:
-    """組 5 張主卡 + 推 LINE"""
+    """組 3 張主卡 + 推 LINE（函式名保留兼容性）"""
     try:
         from . import line_push
     except ImportError:
         import line_push
 
-    print("組 5 張主卡...")
-    cards = 組5張主卡()
+    print("組主卡...")
+    cards = 組5張主卡()  # 內容已改 3 張
     if not cards:
         print("❌ 沒有任何卡可推")
         return False

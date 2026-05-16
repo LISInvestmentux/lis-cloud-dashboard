@@ -222,12 +222,61 @@ def 檢查關鍵檔案() -> dict:
     }
 
 
+def 檢查推播狀態(日數: int = 1) -> dict:
+    """5/16 新增 — 從 push_status_jsonl 統計昨晚到現在的 LINE 推播狀態"""
+    from pathlib import Path
+    log_dir = Path(__file__).resolve().parent.parent.parent / "數據" / "logs"
+    異常 = []
+    統計 = {"總筆數": 0, "成功": 0, "失敗": 0, "失敗詳情": []}
+
+    # 取最近 N 天的 jsonl
+    today = datetime.now().date()
+    for delta in range(日數):
+        d = today - timedelta(days=delta)
+        path = log_dir / f"push_status_{d:%Y-%m-%d}.jsonl"
+        if not path.exists():
+            continue
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                統計["總筆數"] += 1
+                if rec.get("ok"):
+                    統計["成功"] += 1
+                else:
+                    統計["失敗"] += 1
+                    統計["失敗詳情"].append({
+                        "ts": rec.get("ts", ""),
+                        "alt": rec.get("alt", "")[:40],
+                        "status": rec.get("status"),
+                        "error": rec.get("error", "")[:80],
+                    })
+        except Exception as e:
+            異常.append({"問題": f"jsonl 解析失敗 {path.name}: {e}"})
+
+    if 統計["失敗"] > 0:
+        異常.append({
+            "問題": f"⚠️ 推播失敗 {統計['失敗']}/{統計['總筆數']} 筆",
+        })
+
+    return {
+        "總筆數": 統計["總筆數"],
+        "成功": 統計["成功"],
+        "失敗": 統計["失敗"],
+        "失敗詳情": 統計["失敗詳情"][:5],  # 最多顯示 5 筆
+        "異常": 異常,
+        "正常": 統計["失敗"] == 0,
+    }
+
+
 def 跑全套(推LINE: bool = False) -> dict:
     """主入口：跑全部檢查"""
     print(f"=== Phase 36 LIS 健康掃描 [{datetime.now():%Y-%m-%d %H:%M}] ===")
 
     結果 = {
         "排程": 檢查排程任務(),
+        "推播狀態": 檢查推播狀態(日數=1),  # 5/16 新增
         "portfolio": 檢查portfolio_schema(),
         "pending": 檢查pending_過期(),
         "logs": 檢查logs_錯誤(),
