@@ -79,6 +79,36 @@ initLiff();
 </body></html>
 """, height=42)
 
+# ════════════════════════════════════════════
+# Phase 37.3 (5/16) — 收到 ?view=xxx 自動 redirect 到 dashboard
+# 原因：LIFF endpoint 指向 lis-portfolio.streamlit.app (本檔)
+# 但 daily_5cards 5 個 view 的內容在 lis-ryan-2026.streamlit.app
+# 解法：本檔看到 ?view= 就用 meta refresh + JS 雙保險自動跳轉
+# ════════════════════════════════════════════
+_view_param = st.query_params.get("view", "")
+if _view_param:
+    _target_url = f"https://lis-ryan-2026.streamlit.app/?view={_view_param}"
+    # 雙重 redirect — meta refresh + JS（webview 環境保險）
+    st.markdown(f'''
+    <meta http-equiv="refresh" content="0; url={_target_url}">
+    <script>
+        // 立即跳轉（meta refresh 備援）
+        window.location.replace("{_target_url}");
+    </script>
+    <div style="text-align:center; padding:40px; color:#FBBF24;">
+        <h2>🔄 載入 LIS Dashboard...</h2>
+        <p style="color:#888;">如果沒自動跳轉，請按下方按鈕</p>
+        <a href="{_target_url}" style="
+            display:inline-block; padding:12px 24px;
+            background:#FBBF24; color:#000;
+            text-decoration:none; border-radius:8px;
+            font-weight:bold; margin-top:16px;">
+            前往 LIS Dashboard →
+        </a>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.stop()
+
 # 從 query params 讀使用者身分
 _uid = st.query_params.get("uid", "")
 _name = st.query_params.get("name", "")
