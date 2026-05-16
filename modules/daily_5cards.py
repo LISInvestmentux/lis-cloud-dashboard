@@ -201,11 +201,19 @@ def _卡_今日行動() -> dict:
                         size="xs", color=C["text_dim"]))
     body.append(分隔線())
 
-    # ─── 🔴 該賣 (從 真倉警示 重算金額，修 NT$ 0 bug) ───
+    # ─── 🔴 該賣 (Phase 40: 套用 conviction 過濾，方舟「算給看不強制」哲學) ───
     body.append(文字("🔴 該賣", size="md", color=C["bear"], weight="bold"))
     警示 = 真倉.get("警示", {})
     達停利 = 警示.get("達停利", [])
     破停損 = 警示.get("破停損", [])
+
+    # 套用信念分數 + 部位大小過濾
+    try:
+        from . import conviction
+    except ImportError:
+        import conviction
+    真該停損, 停損觀察中 = conviction.過濾停損警示(破停損, cfg, USD_TWD)
+
     該賣項目 = []
     for r in 達停利:
         is_us = r.get("is_us", False)
@@ -218,7 +226,7 @@ def _卡_今日行動() -> dict:
             "is_us": is_us, "shares": 賣股數, "price": price,
             "usd": usd, "twd": twd, "理由": "🎯 達 +15% 停利（賣一半）",
         })
-    for r in 破停損:
+    for r in 真該停損:
         is_us = r.get("is_us", False)
         shares = r["shares"]
         price = r["current_price"]
@@ -227,7 +235,8 @@ def _卡_今日行動() -> dict:
         該賣項目.append({
             "symbol": r["symbol"], "name": r.get("name", "")[:6],
             "is_us": is_us, "shares": shares, "price": price,
-            "usd": usd, "twd": twd, "理由": "💀 破停損（全停損）",
+            "usd": usd, "twd": twd,
+            "理由": f"💀 破停損 {r.get('_閾值', -3):.1f}% (信念 {r.get('_conviction', 3)}/5)",
         })
 
     if 該賣項目:
@@ -244,9 +253,25 @@ def _卡_今日行動() -> dict:
             body.append(文字(f"  {x['理由']}",
                              size="xxs", color=C["text_dim"], wrap=True))
     else:
-        body.append(文字("  今天沒有達停利／停損",
+        body.append(文字("  今天沒有達停利／真該停損",
                         size="xs", color=C["text_dim"]))
     body.append(分隔線())
+
+    # ─── 📉 觀察中（方舟風格：算給看不強制）───
+    if 停損觀察中:
+        body.append(文字("📉 觀察中（紀律觸發但不強制）",
+                        size="md", color=C["wait"], weight="bold"))
+        for r in 停損觀察中[:5]:
+            sym = r.get("symbol", "?")
+            pnl_pct = r.get("pnl_pct", 0)
+            conv = r.get("_conviction", 3)
+            threshold = r.get("_閾值", -3)
+            body.append(文字(
+                f"• {sym} {pnl_pct:+.2f}% (信念 {conv}/5, 閾值 {threshold:.1f}%)",
+                size="sm", color=C["text_main"], wrap=True))
+            body.append(文字(f"  {r.get('_過濾原因', '')}",
+                            size="xxs", color=C["text_dim"], wrap=True))
+        body.append(分隔線())
 
     # ─── ⏸️ 該抱（列 Top 3 最賺名字，user 看了更安心）───
     該抱數 = 持股數 - len(必做)
