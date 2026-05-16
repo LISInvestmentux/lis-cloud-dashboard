@@ -43,6 +43,62 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "").strip()
 ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
 DEFAULT_USER_ID = os.getenv("LINE_USER_ID", "").strip()
 
+# ════════════════════════════════════════════
+# Phase 39 (5/16) — 雲端啟動時從 Gist 抓 portfolio.json / sylvie / watchlist
+# 因為 .gitignore 排除 portfolio.json，Render 從 GitHub clone 沒這檔案
+# 解法：啟動時 HTTP GET Gist raw URL 下載到 /tmp 或 API/
+# user 在 Render 設 env vars:
+#   PORTFOLIO_GIST_URL=https://gist.githubusercontent.com/.../raw/portfolio.json
+#   SYLVIE_GIST_URL=https://gist.githubusercontent.com/.../raw/sylvie_portfolio.json (可選)
+# ════════════════════════════════════════════
+def _從Gist下載到本地():
+    """雲端啟動時抓 portfolio.json 寫到本地。本機開發跳過。"""
+    import requests as _r
+    import tempfile
+
+    # portfolio
+    portfolio_url = os.getenv("PORTFOLIO_GIST_URL", "").strip()
+    if portfolio_url:
+        try:
+            r = _r.get(portfolio_url, timeout=10)
+            r.raise_for_status()
+            # 寫到專案 API/ 跟 /tmp（雙保險）
+            candidates = [
+                Path(__file__).resolve().parent.parent / "API" / "portfolio.json",
+                Path(tempfile.gettempdir()) / "lis_portfolio.json",
+            ]
+            saved = None
+            for cand in candidates:
+                try:
+                    cand.parent.mkdir(parents=True, exist_ok=True)
+                    cand.write_text(r.text, encoding="utf-8")
+                    saved = cand
+                    break
+                except (PermissionError, OSError):
+                    continue
+            if saved:
+                os.environ["LIS_PORTFOLIO_PATH"] = str(saved)
+                print(f"✓  portfolio.json 從 Gist 下載 → {saved}", flush=True)
+        except Exception as e:
+            print(f"❌ portfolio Gist 下載失敗：{e}", flush=True)
+
+    # sylvie
+    sylvie_url = os.getenv("SYLVIE_GIST_URL", "").strip()
+    if sylvie_url:
+        try:
+            r = _r.get(sylvie_url, timeout=10)
+            r.raise_for_status()
+            sylvie_path = (Path(__file__).resolve().parent.parent /
+                           "數據" / "sylvie_portfolio.json")
+            sylvie_path.parent.mkdir(parents=True, exist_ok=True)
+            sylvie_path.write_text(r.text, encoding="utf-8")
+            print(f"✓  sylvie_portfolio.json 從 Gist 下載", flush=True)
+        except Exception as e:
+            print(f"⚠️  sylvie Gist 下載失敗（非必要）：{e}", flush=True)
+
+
+_從Gist下載到本地()
+
 app = FastAPI(title="LIS Webhook Server")
 
 
@@ -124,6 +180,14 @@ def 處理postback(event: dict) -> None:
         import traceback
         print(f"❌ 推 {view} 失敗：{e}", flush=True)
         traceback.print_exc()
+        # 推 fallback 訊息讓 user 知道失敗（不要 silent fail）
+        try:
+            line_push.推播文字訊息(
+                f"⚠️ 細節卡 {view} 載入失敗：\n{type(e).__name__}: {str(e)[:80]}\n\n"
+                f"可能原因：Render 端缺 portfolio.json (要設 PORTFOLIO_GIST_URL env var)",
+                user_id=user_id)
+        except Exception:
+            pass
 
 
 @app.get("/webhook")
