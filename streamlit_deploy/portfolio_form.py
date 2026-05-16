@@ -83,9 +83,20 @@ initLiff();
 # Phase 37.3 (5/16) — 收到 ?view=xxx 自動 redirect 到 dashboard
 # 原因：LIFF endpoint 指向 lis-portfolio.streamlit.app (本檔)
 # 但 daily_5cards 5 個 view 的內容在 lis-ryan-2026.streamlit.app
-# 解法：本檔看到 ?view= 就用 meta refresh + JS 雙保險自動跳轉
+# LIFF 機制：?view=xxx 會被包進 ?liff.state=%3Fview%3Dxxx (URL encoded)
+# 解法：先讀 view，沒有再讀 liff.state 解出 view
 # ════════════════════════════════════════════
 _view_param = st.query_params.get("view", "")
+if not _view_param:
+    # LIFF 把 query 包進 liff.state
+    _liff_state = st.query_params.get("liff.state", "")
+    if _liff_state:
+        import urllib.parse as _up
+        # liff.state 可能是 "?view=xxx" 或 "view=xxx"
+        _decoded = _up.unquote(_liff_state).lstrip("?")
+        _parsed = _up.parse_qs(_decoded)
+        _view_param = _parsed.get("view", [""])[0]
+
 if _view_param:
     _target_url = f"https://lis-ryan-2026.streamlit.app/?view={_view_param}"
     # 雙重 redirect — meta refresh + JS（webview 環境保險）
