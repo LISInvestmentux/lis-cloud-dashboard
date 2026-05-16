@@ -196,7 +196,59 @@ def _卡_今日行動() -> dict:
                          size="xs", color=C["text_dim"]),
                 ],
             })
-    else:
+
+    # Phase 45 — 掃 watchlist 進場勝率 Top 3（從快取 positional_state.json）
+    try:
+        from . import entry_signal_scorer
+        from . import bottom_detector as _bd
+    except ImportError:
+        import entry_signal_scorer
+        import bottom_detector as _bd
+
+    try:
+        # 取黑天鵝命中
+        sop_r = _bd.即時底部判定()
+        sop命中 = sop_r.get("命中數", 0)
+    except Exception:
+        sop命中 = 0
+
+    try:
+        from pathlib import Path as _P
+        import json as _j
+        pos_path = _P(__file__).resolve().parent.parent.parent / "數據" / "positional_state.json"
+        位階dict = _j.loads(pos_path.read_text(encoding="utf-8")).get("scores", {})
+    except Exception:
+        位階dict = {}
+
+    # 找低位階 (< 35) 且不在現有持股的標的
+    現有symbols = {p["symbol"] for p in cfg.get("current_positions", []) or []}
+    候選 = [(sym, score) for sym, score in 位階dict.items()
+            if score and 0 < score < 35 and sym not in 現有symbols
+            and not sym.startswith("^")]
+    候選.sort(key=lambda x: x[1])
+    候選symbols = [s[0] for s in 候選[:8]]
+
+    if 候選symbols:
+        排行 = entry_signal_scorer.排序候選清單(
+            symbols=候選symbols,
+            黑天鵝命中=sop命中,
+            top_n=3,
+            抓驚喜=False,
+        )
+        強訊號 = [r for r in 排行 if r["分數"] >= 3]
+        if 強訊號:
+            body.append(文字(
+                f"🎯 進場勝率 Top {len(強訊號)} (Phase 45)",
+                size="sm", color=C["bull"], weight="bold", margin="md"))
+            for r in 強訊號:
+                body.append(文字(
+                    f"• {r['symbol']} {r['等級']} ({r['分數']}/10 分)",
+                    size="xs", color=C["text_main"], weight="bold"))
+                for pts, reason in r["明細"][:2]:
+                    body.append(文字(f"    {reason}",
+                                    size="xxs", color=C["text_dim"]))
+
+    if not 買選項 and not 候選symbols:
         body.append(文字("  今天沒有強訊號 · 紀律觀察",
                         size="xs", color=C["text_dim"]))
     body.append(分隔線())
