@@ -273,6 +273,40 @@ def _卡_今日行動() -> dict:
                             size="xxs", color=C["text_dim"], wrap=True))
         body.append(分隔線())
 
+    # ─── ⏰ 待掛單（Phase 41 — 防忘刪單）───
+    待觸發 = 今日.get("待觸發", []) or []
+    if 待觸發:
+        body.append(文字(
+            f"⏰ 待掛單（{len(待觸發)} 筆）",
+            size="md", color="#3B82F6", weight="bold"))
+        body.append(文字("防忘記刪單 / 等成交",
+                        size="xxs", color=C["text_dim"]))
+        for o in 待觸發[:5]:
+            sym = o.get("symbol", "?")
+            market = o.get("market", "TW")
+            符 = "$" if market == "US" else "NT$"
+            action = o.get("action", "?")
+            shares = o.get("shares", 0)
+            price = o.get("price", 0)
+            note = o.get("note", "")[:30]
+            action_color = C["bear"] if action == "SELL" else C["bull"]
+            body.append({
+                "type": "box", "layout": "horizontal",
+                "contents": [
+                    文字(f"• {sym}", size="sm",
+                         color=C["text_main"], weight="bold", flex=4),
+                    文字(action, size="xs",
+                         color=action_color, weight="bold", flex=2),
+                    文字(f"{shares} @ {符}{price:.2f}",
+                         size="xs", color=C["text_main"],
+                         align="end", flex=4),
+                ],
+            })
+            if note:
+                body.append(文字(f"  {note}",
+                                size="xxs", color=C["text_dim"], wrap=True))
+        body.append(分隔線())
+
     # ─── ⏸️ 該抱（列 Top 3 最賺名字，user 看了更安心）───
     該抱數 = 持股數 - len(必做)
     body.append(文字("⏸️ 該抱（紀律內，繼續抱）", size="md",
