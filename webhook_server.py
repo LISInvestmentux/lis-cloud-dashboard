@@ -195,10 +195,55 @@ async def webhook(request: Request,
     return {"ok": True}
 
 
+# ════════════════════════════════════════════
+# Startup 健康驗證（給 Render Logs 看）
+# ════════════════════════════════════════════
+def _驗證啟動環境():
+    print("=" * 50, flush=True)
+    print("🚀 LIS Webhook Server 啟動驗證", flush=True)
+    print("=" * 50, flush=True)
+
+    # LINE_CHANNEL_SECRET
+    if not LINE_CHANNEL_SECRET:
+        print("⚠️  LINE_CHANNEL_SECRET 未設定（會跳過 signature 驗證）", flush=True)
+    else:
+        l = len(LINE_CHANNEL_SECRET)
+        print(f"✓  LINE_CHANNEL_SECRET: {l} 字元", flush=True)
+        if l != 32:
+            print(f"⚠️  正常 LINE_CHANNEL_SECRET 應為 32 字元，目前 {l}", flush=True)
+        # 確認是 hex 格式（LINE secret 通常是）
+        try:
+            int(LINE_CHANNEL_SECRET, 16)
+            print(f"   格式: hex ✓", flush=True)
+        except ValueError:
+            print(f"   ⚠️ 不是 hex 格式（可能複製錯）", flush=True)
+        # 印前 4 字元 + 後 4 字元（不洩漏完整 secret）
+        if l >= 8:
+            print(f"   前 4: {LINE_CHANNEL_SECRET[:4]}...{LINE_CHANNEL_SECRET[-4:]}", flush=True)
+
+    # LINE_CHANNEL_ACCESS_TOKEN
+    if not ACCESS_TOKEN:
+        print("❌ LINE_CHANNEL_ACCESS_TOKEN 未設定（無法推 LINE）", flush=True)
+    else:
+        l = len(ACCESS_TOKEN)
+        print(f"✓  LINE_CHANNEL_ACCESS_TOKEN: {l} 字元", flush=True)
+        if l < 100:
+            print(f"⚠️  ACCESS_TOKEN 通常 > 100 字元，目前 {l}（可能複製錯）", flush=True)
+
+    # LINE_USER_ID
+    if not DEFAULT_USER_ID:
+        print("⚠️  LINE_USER_ID 未設定（postback 用 event source 的 userId）", flush=True)
+    else:
+        print(f"✓  LINE_USER_ID: {DEFAULT_USER_ID[:6]}...{DEFAULT_USER_ID[-4:]}", flush=True)
+
+    print("=" * 50, flush=True)
+
+
+_驗證啟動環境()
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8000"))
-    print(f"🚀 LIS Webhook Server starting on port {port}")
-    print(f"   LINE_CHANNEL_SECRET: {'✓' if LINE_CHANNEL_SECRET else '✗'}")
-    print(f"   LINE_CHANNEL_ACCESS_TOKEN: {'✓' if ACCESS_TOKEN else '✗'}")
+    print(f"🚀 LIS Webhook Server starting on port {port}", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=port)
