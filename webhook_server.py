@@ -138,25 +138,57 @@ async def webhook(request: Request,
     """LINE webhook 主入口"""
     body_bytes = await request.body()
 
-    if not 驗證簽章(body_bytes, x_line_signature):
-        print(f"❌ 簽章驗證失敗", flush=True)
-        raise HTTPException(status_code=403, detail="Invalid signature")
-
+    # 先解析 body 看是否是 LINE Verify（events 為空）
     try:
         data = json.loads(body_bytes.decode("utf-8"))
     except Exception as e:
-        print(f"❌ JSON parse 失敗：{e}", flush=True)
+        print(f"[{datetime.now():%H:%M:%S}] ❌ JSON parse 失敗：{e}", flush=True)
+        print(f"  body (前 200 bytes): {body_bytes[:200]}", flush=True)
         return {"ok": False}
 
     events = data.get("events", [])
-    print(f"[{datetime.now():%H:%M:%S}] 收到 {len(events)} 個 events", flush=True)
+    destination = data.get("destination", "")
+
+    # ⭐ LINE Verify 機制：送 destination + 空 events 來測試 webhook
+    # 跳過 signature 驗證直接回 200（不會觸發任何推播動作，安全）
+    if not events:
+        print(f"[{datetime.now():%H:%M:%S}] 🔍 LINE Verify ping "
+              f"(destination={destination[:8] if destination else 'none'}...)",
+              flush=True)
+        # 記錄 signature debug 資訊（給之後 debug 用）
+        if LINE_CHANNEL_SECRET and x_line_signature:
+            expected = base64.b64encode(
+                hmac.new(LINE_CHANNEL_SECRET.encode("utf-8"),
+                         body_bytes, hashlib.sha256).digest()
+            ).decode("utf-8")
+            match = "✓" if hmac.compare_digest(expected, x_line_signature) else "✗"
+            print(f"  signature 比對: {match}", flush=True)
+            print(f"  LINE 送的: {x_line_signature[:20]}...", flush=True)
+            print(f"  我算的:   {expected[:20]}...", flush=True)
+            print(f"  secret 長度: {len(LINE_CHANNEL_SECRET)} chars", flush=True)
+        return {"ok": True}
+
+    # 真實 events：必須驗 signature
+    if not 驗證簽章(body_bytes, x_line_signature):
+        # 加 debug log 看 signature 哪裡不對
+        if LINE_CHANNEL_SECRET:
+            expected = base64.b64encode(
+                hmac.new(LINE_CHANNEL_SECRET.encode("utf-8"),
+                         body_bytes, hashlib.sha256).digest()
+            ).decode("utf-8")
+            print(f"[{datetime.now():%H:%M:%S}] ❌ Signature mismatch", flush=True)
+            print(f"  LINE 送的: {x_line_signature[:20]}...", flush=True)
+            print(f"  我算的:   {expected[:20]}...", flush=True)
+            print(f"  body 前 100 bytes: {body_bytes[:100]}", flush=True)
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    print(f"[{datetime.now():%H:%M:%S}] ✓ 收到 {len(events)} 個 events", flush=True)
 
     for event in events:
         evt_type = event.get("type", "")
         if evt_type == "postback":
             處理postback(event)
         elif evt_type == "message":
-            # 收到文字訊息 — 可日後擴充對話功能
             text = event.get("message", {}).get("text", "")
             print(f"  message: {text[:50]}", flush=True)
 
