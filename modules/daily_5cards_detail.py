@@ -219,17 +219,22 @@ def 卡_完整持股() -> dict:
         })
 
     body.append(分隔線())
-    # 美股小計
+    # 美股小計（修 Phase 39 bug — 用 current_price * shares 自己算市值）
     美股 = [p for p in 持股 if p.get("is_us")]
     if 美股:
-        usd = sum(p.get("市值_usd", 0) or 0 for p in 美股)
+        usd = sum((p.get("current_price", 0) or 0) * (p.get("shares", 0) or 0)
+                  for p in 美股)
         usd_cost = sum((p.get("avg_cost", 0) or 0) * (p.get("shares", 0) or 0)
                        for p in 美股)
         usd_pnl = usd - usd_cost
+        usd_pct = (usd_pnl / usd_cost * 100) if usd_cost > 0 else 0
+        色 = C["bull"] if usd_pnl >= 0 else C["bear"]
         body.append(文字(
-            f"🇺🇸 美股 {len(美股)} 檔: ${usd:,.0f} "
-            f"(損益 ${usd_pnl:+,.0f})",
+            f"🇺🇸 美股 {len(美股)} 檔: ${usd:,.0f}",
             size="xs", color=C["text_main"], wrap=True))
+        body.append(文字(
+            f"  損益 ${usd_pnl:+,.0f} ({usd_pct:+.2f}%)",
+            size="xs", color=色, wrap=True))
 
     return _bubble(body, C)
 
