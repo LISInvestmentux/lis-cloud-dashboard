@@ -625,6 +625,23 @@ def 主流程() -> int:
     for c in carousels:
         push_清單.extend(_拆分carousel(c))
 
+    # ⭐ Phase 37 (5/16) — 新版 5 張主卡上線，main.py 推播完全停用
+    # 但 main.py 還要跑：掃描、Enjoy、ledger、快照（資料給其他模組用）
+    # 推播改由 push_5cards.py（在 LIS全套晨報.py 跑）統一處理
+    _no_push = os.getenv("LIS_NO_PUSH", "true").lower() in ("true", "1", "yes")
+    if _no_push:
+        print(f"\n⏸️ LIS_NO_PUSH=true — 跳過 main.py 的 {len(push_清單)} 輪推播")
+        print(f"   （Phase 37：改由 push_5cards.py 推 5 張主卡）")
+        push_清單 = []
+
+    # 舊版 emergency limit（LIS_NO_PUSH=false 時用）
+    _limit = int(os.getenv("LIS_PUSH_LIMIT", "3"))
+    if push_清單 and _limit > 0 and len(push_清單) > _limit:
+        略過數 = len(push_清單) - _limit
+        print(f"\n⚠️ Emergency limit: 推播限制前 {_limit} 輪，"
+              f"略過後 {略過數} 輪")
+        push_清單 = push_清單[:_limit]
+
     print(f"\n推播 {len(push_清單)} 輪 Flex Carousel 到 LINE...")
     for i, c in enumerate(push_清單, 1):
         卡數 = len(c['contents'])

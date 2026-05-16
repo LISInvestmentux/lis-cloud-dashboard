@@ -323,6 +323,13 @@ def 主流程():
     line_push.推播Flex訊息(替代文字=alt, flex內容=carousel)
     print(f"✅ 已推 LINE：{alt}")
 
+    try:
+        import sync_to_gist
+        if sync_to_gist.自動同步(silent=True):
+            print("☁️ Gist 已同步")
+    except Exception:
+        pass
+
 
 if __name__ == "__main__":
     主流程()

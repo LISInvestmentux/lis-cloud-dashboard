@@ -82,6 +82,20 @@ def 同步portfolio() -> bool:
                     path.read_text(encoding="utf-8"))
 
 
+def 自動同步(silent: bool = True) -> bool:
+    """給 push 流程呼叫的 silent helper — 失敗也不爆推播流程"""
+    import io, contextlib
+    try:
+        if silent:
+            with contextlib.redirect_stdout(io.StringIO()):
+                return 同步portfolio()
+        return 同步portfolio()
+    except Exception as e:
+        if not silent:
+            print(f"⚠️ auto sync 失敗（不影響推播）：{e}")
+        return False
+
+
 def 同步sylvie() -> bool:
     path = 專案根 / "數據" / "sylvie_portfolio.json"
     if not path.exists():

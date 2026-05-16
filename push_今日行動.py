@@ -18,4 +18,10 @@ from modules import daily_action_card
 if __name__ == "__main__":
     ok = daily_action_card.推Flex卡()
     print(f"✅ 推送：{ok}")
+    try:
+        import sync_to_gist
+        if sync_to_gist.自動同步(silent=True):
+            print("☁️ Gist 已同步")
+    except Exception:
+        pass
     sys.exit(0 if ok else 1)

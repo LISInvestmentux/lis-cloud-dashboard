@@ -85,6 +85,35 @@ def _淨化Flex(節點):
             _淨化Flex(item)
 
 
+def _寫推播狀態(alt: str, status_code: int, size_kb: float,
+                err: str | None = None) -> None:
+    """5/16 新增：每次推播都寫 jsonl 狀態 log，給 user 透明可見。
+    路徑：數據/logs/push_status_YYYY-MM-DD.jsonl
+    Console emoji 在 PowerShell 5.1 會被吃掉，所以必須有純文字 log。
+    """
+    try:
+        from pathlib import Path
+        from datetime import datetime
+        import json as _json
+        log_dir = Path(__file__).resolve().parent.parent.parent / "數據" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        today = datetime.now().strftime("%Y-%m-%d")
+        path = log_dir / f"push_status_{today}.jsonl"
+        record = {
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "alt": (alt or "")[:80],
+            "status": status_code,
+            "size_kb": round(size_kb, 1),
+            "ok": status_code == 200,
+        }
+        if err:
+            record["error"] = str(err)[:200]
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(_json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass  # log 寫失敗絕不影響主流程
+
+
 def 推播Flex訊息(替代文字: str, flex內容: dict,
                   user_id: str | None = None) -> dict:
     """
@@ -121,9 +150,15 @@ def 推播Flex訊息(替代文字: str, flex內容: dict,
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json",
     }
+    # 算 size 給 log 用
+    import json as _j
+    size_kb = len(_j.dumps(payload, ensure_ascii=False).encode("utf-8")) / 1024
     resp = requests.post(PUSH_API, headers=headers, json=payload, timeout=15)
     if resp.status_code != 200:
         print(f"[LINE Flex] HTTP {resp.status_code}: {resp.text}", file=sys.stderr)
+        _寫推播狀態(替代文字, resp.status_code, size_kb, err=resp.text[:200])
+    else:
+        _寫推播狀態(替代文字, 200, size_kb)
     resp.raise_for_status()
     return resp.json() if resp.text else {}
 

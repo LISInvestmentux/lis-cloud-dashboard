@@ -55,19 +55,23 @@ def 檢查排程任務() -> dict:
                     "問題": "沒有下次執行時間（可能停用）",
                 })
                 continue
-            # LastResult 判定：
-            #   0 = 成功
-            #   1 = PowerShell stderr 輸出 false-positive（不算 fail，要看 log）
-            #   267011 = Task has not yet run
+            # LastResult 判定（5/16 修正：1 不該無腦忽略！）
+            #   0 = 成功 ✓
             #   267009 = Task is currently running
-            # → 1 也忽略（避免 yfinance/Gemini 偶爾警告就警報）
-            # → 真正要關心的是 >= 2 的錯誤碼
+            #   267011 = Task has not yet run
+            #   1 = ⚠️ 軟失敗（Python ExitCode=1，可能真的失敗，要警告）
+            #   其他非 0 = 🚨 嚴重失敗（如 3221225786 = Ctrl+C 中斷）
             lr = t.get("LastResult", 0)
-            容忍清單 = (0, 1, 267011, 267009)
-            if lr not in 容忍清單:
+            正常清單 = (0, 267009, 267011)
+            if lr == 1:
                 異常.append({
                     "name": t["Name"],
-                    "問題": f"上次執行失敗 (code {lr})",
+                    "問題": "⚠️ 上次執行失敗 (ExitCode=1，請查 log)",
+                })
+            elif lr not in 正常清單:
+                異常.append({
+                    "name": t["Name"],
+                    "問題": f"🚨 上次執行嚴重失敗 (code {lr})",
                 })
         except Exception:
             continue

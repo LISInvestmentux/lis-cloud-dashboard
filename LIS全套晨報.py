@@ -70,34 +70,16 @@ def 主流程() -> int:
 
     結果 = {}
 
-    # 0. 今日行動卡（Phase 33.2 — 最先推，user 一打開最先看到）
-    結果["今日行動"] = 跑("push_今日行動.py",
-                            "今日行動卡（Phase 33.2 — 最重要的一張）")
-    time.sleep(2)
-
-    # 1. 全息儀表板（一張看全部）
-    結果["全息儀表板"] = 跑("push_holistic.py",
-                              "全息儀表板（Phase 33）")
-    time.sleep(2)
-
-    # 2. 即時決策（含自動記錄訊號）
-    結果["即時決策"] = 跑("instant_decision.py",
-                            "即時決策（Phase 17-26）")
-    time.sleep(2)
-
-    # 3. 主情報中心（台美連動 + 法人 + 基本面 + 新聞）
-    結果["主情報中心"] = 跑("push_master_intelligence.py",
-                              "主情報中心（Phase 22-25）")
-    time.sleep(2)
-
-    # 4. 跨來源共識（社群+KOL+ARK 共識排行）
-    結果["跨來源共識"] = 跑("push_社群共識.py",
-                              "跨來源共識（Phase 27 + 30）")
-    time.sleep(2)
-
-    # 5. 策略池入選
-    結果["策略池"] = 跑("push_strategy_pool.py",
-                          "策略池入選（Phase 25）")
+    # ⭐ Phase 37 (5/16) — 5 張主卡整合替代 30+ 舊卡
+    # 一張 carousel 含 5 個 bubble：今日行動 / 持股&大盤 / 訊號&機會 / Sylvie&KOL / 美股&新聞
+    # 每張帶 LIFF 按鈕展開細節（Phase 2b 完成 view 切換）
+    結果["5張主卡"] = 跑("push_5cards.py",
+                          "Phase 37 5 張主卡（取代舊 30+ 卡）")
+    # 舊邏輯保留註解，待 user 確認新版穩定後刪除：
+    # 結果["今日行動"] = 跑("push_今日行動.py", ...)
+    # 結果["全息儀表板"] = 跑("push_holistic.py", ...)
+    # 結果["即時決策"] = 跑("instant_decision.py", ...)
+    # 結果["跨來源共識"] = 跑("push_社群共識.py", ...)
 
     # 總結
     耗時 = (datetime.now() - 開始).total_seconds()

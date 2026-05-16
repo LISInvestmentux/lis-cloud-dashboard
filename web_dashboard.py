@@ -696,6 +696,35 @@ def 套用深色主題(fig):
 
 
 # ════════════════════════════════════════════
+# Phase 2b (5/16) — 從 LIFF button 過來的 ?view 切換滾動位置
+# ════════════════════════════════════════════
+# 5 個 view 對應 web_dashboard 的 section anchor:
+#   action_full       → 🎯 今日重點
+#   portfolio_detail  → 💼 持股清單
+#   opportunities     → 🎯 ARK 級儀表盤
+#   kol_consensus     → 🧠 LIS 深度分析
+#   us_close          → 📊 視覺化分析（含美股）
+_view = st.query_params.get("view", "")
+_view_anchor_map = {
+    "action_full": "section-today",
+    "portfolio_detail": "section-portfolio",
+    "opportunities": "section-ark-gauges",
+    "kol_consensus": "section-lis-analysis",
+    "us_close": "section-charts",
+}
+_anchor = _view_anchor_map.get(_view, "")
+if _anchor:
+    # 注入自動滾動腳本（延遲 1.5 秒讓 Streamlit 先渲染完）
+    st.markdown(f"""
+    <script>
+    setTimeout(function() {{
+        var el = document.getElementById('{_anchor}');
+        if (el) el.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+    }}, 1500);
+    </script>
+    """, unsafe_allow_html=True)
+
+# ════════════════════════════════════════════
 # Hero Header
 # ════════════════════════════════════════════
 st.markdown(f"""
@@ -704,7 +733,7 @@ st.markdown(f"""
         <div class='brand-logo'>📈</div>
         <div class='brand-text'>
             <h1>LIS Investment</h1>
-            <p>Investment Intelligence · v1.1</p>
+            <p>Investment Intelligence · v1.1{f' · View: {_view}' if _view else ''}</p>
         </div>
     </div>
     <div class='status-pill'>
@@ -777,7 +806,7 @@ st.markdown(f"""
 # ════════════════════════════════════════════
 # Phase 33.1：ARK 級 Gauges 儀表板
 # ════════════════════════════════════════════
-st.markdown("<div class='section-title'><h2>🎯 ARK 級儀表盤</h2><span class='badge'>Real-time Gauges</span></div>", unsafe_allow_html=True)
+st.markdown("<div id='section-ark-gauges' class='section-title'><h2>🎯 ARK 級儀表盤</h2><span class='badge'>Real-time Gauges</span></div>", unsafe_allow_html=True)
 
 # 抓 gauges 所需資料
 @st.cache_data(ttl=120)
@@ -997,7 +1026,7 @@ with col_6:
 # ════════════════════════════════════════════
 # Phase 36.14：K 線 + 風控分數變化圖（仿方舟）
 # ════════════════════════════════════════════
-st.markdown("<div class='section-title'><h2>📈 大盤 K 線 + 風控變化</h2><span class='badge'>過熱不需亂追，看風控怎麼變化</span></div>", unsafe_allow_html=True)
+st.markdown("<div id='section-charts' class='section-title'><h2>📈 大盤 K 線 + 風控變化</h2><span class='badge'>過熱不需亂追，看風控怎麼變化</span></div>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=600)
 def 抓K線風控():
@@ -1198,7 +1227,7 @@ else:
 # ════════════════════════════════════════════
 # Daily Brief
 # ════════════════════════════════════════════
-st.markdown("<div class='section-title'><h2>🎯 今日重點</h2><span class='badge'>Daily Brief</span></div>", unsafe_allow_html=True)
+st.markdown("<div id='section-today' class='section-title'><h2>🎯 今日重點</h2><span class='badge'>Daily Brief</span></div>", unsafe_allow_html=True)
 
 接近停利 = [h for h in 持股表 if 12 <= h["漲幅"] < 15]
 達停利 = [h for h in 持股表 if h["漲幅"] >= 15]
@@ -1344,7 +1373,7 @@ with col_g4:
 # ════════════════════════════════════════════
 # 持股清單卡片
 # ════════════════════════════════════════════
-st.markdown(f"<div class='section-title'><h2>💼 持股清單</h2><span class='badge'>{len(持股表)} 檔</span></div>", unsafe_allow_html=True)
+st.markdown(f"<div id='section-portfolio' class='section-title'><h2>💼 持股清單</h2><span class='badge'>{len(持股表)} 檔</span></div>", unsafe_allow_html=True)
 
 排序 = st.selectbox("", ["漲幅 ↓", "漲幅 ↑", "市值 ↓", "Kelly ↓", "損益 ↓"],
                     label_visibility="collapsed", key="sort_v3")
@@ -1472,7 +1501,7 @@ components.html(full_html, height=estimated_height, scrolling=False)
 # ════════════════════════════════════════════
 # 深度分析
 # ════════════════════════════════════════════
-st.markdown("<div class='section-title'><h2>🧠 LIS 深度分析</h2><span class='badge'>Smart Intelligence</span></div>", unsafe_allow_html=True)
+st.markdown("<div id='section-lis-analysis' class='section-title'><h2>🧠 LIS 深度分析</h2><span class='badge'>Smart Intelligence</span></div>", unsafe_allow_html=True)
 
 with st.expander("🏆 跨來源共識排行（305 訊號）"):
     共識資料 = 載入共識()
