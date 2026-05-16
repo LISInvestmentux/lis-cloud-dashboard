@@ -519,8 +519,23 @@ def _卡_Sylvie_KOL() -> dict:
     # ─── Header ───
     body.append(文字("👥 老師們今日重點", size="xl",
                      color=C["accent"], weight="bold"))
-    body.append(文字("香港朋友 + Sylvie + 6 大 KOL",
+    body.append(文字("Enjoy + 香港朋友 + Sylvie + 6 大 KOL",
                      size="xs", color=C["text_dim"]))
+    body.append(分隔線())
+
+    # ─── 🚀 Enjoy 朋友（神人 14 年，10 萬→千萬，LIS 命名由來）───
+    body.append(文字("🚀 Enjoy 朋友（14 年｜10 萬→千萬）",
+                     size="sm", color=C["accent"], weight="bold"))
+    body.append(文字("  3 方法給新手:",
+                    size="xs", color=C["text_main"]))
+    body.append(文字("  ① 無腦投資大盤 ETF",
+                    size="xxs", color=C["text_main"]))
+    body.append(文字("  ② 一半存股 + 一半短線",
+                    size="xxs", color=C["text_main"]))
+    body.append(文字("  ③ 重壓一檔最看好",
+                    size="xxs", color=C["text_main"]))
+    body.append(文字("  「人人都知道，但人人做不到」",
+                    size="xxs", color=C["text_dim"], wrap=True))
     body.append(分隔線())
 
     # ─── 🇭🇰 香港朋友（hard-coded 心法，從記憶來）───

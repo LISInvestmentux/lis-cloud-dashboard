@@ -258,6 +258,34 @@ def 卡_完整KOL() -> dict:
                      color=C["accent"], weight="bold"))
     body.append(分隔線())
 
+    # 🚀 Enjoy 朋友（神人 14 年 10 萬→千萬，LIS 命名由來）
+    body.append(文字("🚀 Enjoy 朋友", size="md",
+                     color=C["accent"], weight="bold"))
+    enjoy_lines = [
+        "  • 投資 14 年 · 10 萬 → 千萬（100 倍）",
+        "  • LIS 系統 \"Enjoy\" 命名由來",
+        "  • 派別: 動能積極派 · 有時當沖",
+        "",
+        "  3 方法給新手（user 親問）:",
+        "  ① 無腦投資大盤 ETF",
+        "  ② 一半存股 + 一半短線",
+        "      短線獲利繼續買存股",
+        "  ③ 重壓一檔你看好的股票",
+        "",
+        "  ✅ LIS strategy_mode 完全對應這 3 種",
+        "     (passive_etf / balanced / all_in_one)",
+        "",
+        "  user 金句:",
+        "  「人人都知道，但人人做不到！哈」",
+    ]
+    for line in enjoy_lines:
+        if line:
+            body.append(文字(line, size="xxs",
+                            color=C["text_main"], wrap=True))
+        else:
+            body.append(文字(" ", size="xxs"))
+    body.append(分隔線())
+
     # 🇭🇰 香港朋友 — 完整心法
     body.append(文字("🇭🇰 香港朋友 15 年心法", size="md",
                      color=C["accent"], weight="bold"))
