@@ -24,19 +24,44 @@ LIFF_BASE = os.getenv("LIFF_URL", "https://liff.line.me/2010070081-6wmnysUD")
 
 
 def _LIFF按鈕(label: str, view: str) -> dict:
-    """生成 LIFF 按鈕（Phase 2b 加 ?view=xxx 切換）"""
-    return {
-        "type": "button",
-        "style": "primary",
-        "height": "sm",
-        "margin": "md",
-        "color": "#FBBF24",
-        "action": {
-            "type": "uri",
-            "label": label,
-            "uri": f"{LIFF_BASE}?view={view}",
-        },
-    }
+    """生成展開按鈕 — Phase 38 改用 postback action
+
+    user 點按鈕 → LINE 送 postback 到 webhook server → 推對應細節卡
+    取代 Phase 2b 的 LIFF URL（LIFF redirect 不順）
+
+    LIS_USE_POSTBACK env var：
+      "true"（預設）→ 用 postback（需 webhook server 跑著）
+      "false"        → fallback 用 LIFF URI（沒 webhook 時暫用）
+    """
+    use_postback = os.getenv("LIS_USE_POSTBACK", "true").lower() in ("true", "1", "yes")
+
+    if use_postback:
+        return {
+            "type": "button",
+            "style": "primary",
+            "height": "sm",
+            "margin": "md",
+            "color": "#FBBF24",
+            "action": {
+                "type": "postback",
+                "label": label,
+                "data": f"view={view}",
+                "displayText": f"📖 {label}",  # user 點完 chat 內顯示這行
+            },
+        }
+    else:
+        return {
+            "type": "button",
+            "style": "primary",
+            "height": "sm",
+            "margin": "md",
+            "color": "#FBBF24",
+            "action": {
+                "type": "uri",
+                "label": label,
+                "uri": f"{LIFF_BASE}?view={view}",
+            },
+        }
 
 
 # ════════════════════════════════════════════

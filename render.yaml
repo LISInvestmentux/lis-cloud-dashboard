@@ -1,0 +1,20 @@
+# LIS LINE Bot Webhook Server — Render 部署設定
+# https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: lis-webhook
+    runtime: python
+    plan: free  # 免費 tier
+    region: singapore  # 離台灣最近
+    buildCommand: "pip install -r requirements_webhook.txt"
+    startCommand: "uvicorn webhook_server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # 下面 2 個 env vars 要在 Render Dashboard 手動設（不在 yaml 暴露）
+      # LINE_CHANNEL_SECRET
+      # LINE_CHANNEL_ACCESS_TOKEN
+      # LINE_USER_ID
+    healthCheckPath: /health
+    autoDeploy: true  # commit 後自動部署
