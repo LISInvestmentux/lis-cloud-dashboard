@@ -223,13 +223,33 @@ def _卡_今日行動() -> dict:
                         size="xs", color=C["text_dim"]))
     body.append(分隔線())
 
-    # ─── ⏸️ 該抱 ───
+    # ─── ⏸️ 該抱（列 Top 3 最賺名字，user 看了更安心）───
     該抱數 = 持股數 - len(必做)
     body.append(文字("⏸️ 該抱（紀律內，繼續抱）", size="md",
                      color=C["text_main"], weight="bold"))
     if 該抱數 > 0:
-        body.append(文字(f"  共 {該抱數} 檔 — 紀律內繼續",
+        # 列出最賺的 3 檔（不是該賣的）
+        該賣symbols = set()
+        for r in 真倉.get("警示", {}).get("達停利", []):
+            該賣symbols.add(r.get("symbol"))
+        for r in 真倉.get("警示", {}).get("破停損", []):
+            該賣symbols.add(r.get("symbol"))
+        該抱持股 = [p for p in 真倉["持股"]
+                    if not p.get("error") and p["symbol"] not in 該賣symbols]
+        該抱最賺 = sorted(該抱持股, key=lambda p: -p.get("pnl_pct", 0))[:3]
+        body.append(文字(f"  共 {該抱數} 檔 — Top 3 表現：",
                         size="xs", color=C["text_dim"]))
+        for p in 該抱最賺:
+            色 = C["bull"] if p.get("pnl_pct", 0) >= 0 else C["bear"]
+            body.append({
+                "type": "box", "layout": "horizontal",
+                "contents": [
+                    文字(f"    {p['symbol']}", size="xs",
+                         color=C["text_main"], flex=4),
+                    文字(f"{p.get('pnl_pct', 0):+.2f}%", size="xs",
+                         color=色, align="end", weight="bold", flex=3),
+                ],
+            })
     body.append(分隔線())
 
     # ─── ❌ 不該追 ───
