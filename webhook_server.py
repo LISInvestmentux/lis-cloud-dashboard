@@ -126,6 +126,12 @@ def 處理postback(event: dict) -> None:
         traceback.print_exc()
 
 
+@app.get("/webhook")
+def webhook_get():
+    """LINE Verify 機制可能會先用 GET 確認 endpoint 存在 — 回 200 OK"""
+    return {"status": "ready", "method": "POST 才是真正的 webhook"}
+
+
 @app.post("/webhook")
 async def webhook(request: Request,
                   x_line_signature: str = Header(None, alias="X-Line-Signature")):
