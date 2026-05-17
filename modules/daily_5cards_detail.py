@@ -396,6 +396,47 @@ def 卡_完整KOL() -> dict:
                         color=C["text_dim"]))
     body.append(分隔線())
 
+    # 🎬 Terry Chen 業內人 second opinion（Phase 48 — 5/17 加）
+    body.append(文字("🎬 Terry Chen 泰瑞（業內 + 第一性原理）",
+                     size="md", color=C["accent"], weight="bold"))
+    try:
+        # 找最近的 Terry 摘要 cache
+        import glob
+        terry_caches = glob.glob(str(專案根 / "數據" / "cache" / "terry_*.json"))
+        if terry_caches:
+            terry_caches.sort(key=lambda p: Path(p).stat().st_mtime, reverse=True)
+            latest = terry_caches[0]
+            import json as _j
+            tc = _j.loads(Path(latest).read_text(encoding="utf-8"))
+            title = tc.get("video_title", "")[:30]
+            body.append(文字(f"  📺 {title}",
+                            size="xxs", color=C["text_dim"], wrap=True))
+            # 整體觀點（核心一句）
+            整體 = tc.get("整體觀點", "")[:100]
+            if 整體:
+                body.append(文字(f"  💎 {整體}",
+                                size="xxs", color=C["text_main"], wrap=True))
+            # 對 user 持股 commentary
+            comm = tc.get("對持股的commentary", {}) or {}
+            has_cover = [(s, i) for s, i in comm.items()
+                         if i and isinstance(i, dict)]
+            if has_cover:
+                body.append(文字("  🎯 對你持股直接 cover:",
+                                size="xs", color=C["accent"], weight="bold"))
+                for sym, info in has_cover[:5]:
+                    立場 = info.get("立場", "?")
+                    原因 = info.get("原因", "")[:50]
+                    色 = (C["bull"] if 立場 == "看多" else
+                          C["bear"] if 立場 == "看空" else C["text_main"])
+                    body.append(文字(f"    {sym} {立場}",
+                                    size="xxs", color=色, weight="bold"))
+                    body.append(文字(f"      {原因}",
+                                    size="xxs", color=C["text_dim"], wrap=True))
+    except Exception as _e:
+        body.append(文字(f"  (Terry 摘要載入失敗)",
+                        size="xxs", color=C["text_dim"]))
+    body.append(分隔線())
+
     # 🎤 6 大 KOL 完整摘要（從 cache）
     body.append(文字("🎤 6 大 KOL 完整摘要", size="md",
                      color=C["accent"], weight="bold"))
