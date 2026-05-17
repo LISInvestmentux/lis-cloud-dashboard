@@ -70,6 +70,10 @@ def 主流程() -> int:
 
     結果 = {}
 
+    # ⭐ Phase 49 (5/17) — 每日 KOL YouTube 掃描（放最前，慢但失敗不影響後續）
+    結果["KOL掃描"] = 跑("push_kol_scan.py",
+                          "KOL YouTube 掃描（Terry 等）")
+
     # ⭐ Phase 37 (5/16) — 5 張主卡整合替代 30+ 舊卡
     # 一張 carousel 含 5 個 bubble：今日行動 / 持股&大盤 / 訊號&機會 / Sylvie&KOL / 美股&新聞
     # 每張帶 LIFF 按鈕展開細節（Phase 2b 完成 view 切換）
