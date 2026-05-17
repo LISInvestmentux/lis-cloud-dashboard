@@ -412,9 +412,31 @@ def _卡_今日行動() -> dict:
         ],
     })
 
+    # ─── 🌱 紀律進度 Footer（Phase 47 — Octalysis 核心 2 成就）───
+    try:
+        from . import discipline_progress
+    except ImportError:
+        import discipline_progress
+    try:
+        prog = discipline_progress.取得footer資料(cfg, USD_TWD)
+        body.append(分隔線())
+        body.append({
+            "type": "box", "layout": "horizontal",
+            "contents": [
+                文字(f"📊 連續 {prog['連續紀律天數']} 天",
+                     size="xxs", color=C["text_dim"], flex=2),
+                文字(f"💎 +NT$ {prog['累計已實現_twd']:,.0f}",
+                     size="xxs", color=C["bull"], align="center", flex=3),
+                文字(f"🌱 兒子 NT$ {prog['兒子家族池_twd']:,.0f}",
+                     size="xxs", color=C["text_dim"], align="end", flex=3),
+            ],
+        })
+    except Exception:
+        pass
+
     # ─── LIFF Button ───
     body.append(分隔線())
-    body.append(_LIFF按鈕("📖 看為什麼這樣建議", "action_full"))
+    body.append(_LIFF按鈕("🧬 進入今日決策樹", "action_full"))
 
     return {
         "type": "bubble", "size": "mega",
@@ -732,7 +754,7 @@ def _卡_Sylvie_KOL() -> dict:
 
     # ─── LIFF Button ───
     body.append(分隔線())
-    body.append(_LIFF按鈕("📋 看完整老師摘要", "kol_consensus"))
+    body.append(_LIFF按鈕("👥 4 位老師今日共識", "kol_consensus"))
 
     return {
         "type": "bubble", "size": "mega",
@@ -980,7 +1002,7 @@ def _卡_我的部位() -> dict:
 
     # ─── LIFF Button ───
     body.append(分隔線())
-    body.append(_LIFF按鈕("📈 看每檔詳細", "portfolio_detail"))
+    body.append(_LIFF按鈕("💼 進入我的部位深層", "portfolio_detail"))
 
     return {
         "type": "bubble", "size": "mega",
@@ -1183,13 +1205,9 @@ def _卡_市場總覽() -> dict:
 
 
 def 組5張主卡() -> list[dict]:
-    """產生 3 張主卡（Phase 37.2 小白導向重寫）
+    """產生 3 張主卡（Phase 37.2 小白導向 + Phase 47 月初使命卡）
 
-    函式名保留為「組5張主卡」避免破壞 push_5cards.py 呼叫，內容已改 3 張且小白化。
-    3 張：
-      1. 今天該做什麼（該買/該賣/該抱/不該追）
-      2. 我的部位（賺多少/虧多少/大盤暖度人話）
-      3. 老師們今日重點（香港朋友/Sylvie/KOL）
+    3 張主卡 + 月初 1-3 號或 LIS_FORCE_MISSION=true 多推 1 張使命卡。
     """
     cards = []
     for builder, 名 in [
@@ -1204,6 +1222,24 @@ def 組5張主卡() -> list[dict]:
             import traceback
             print(f"  ✗ {名} 失敗：{e}")
             traceback.print_exc()
+
+    # Phase 47: 月初使命卡（Octalysis 核心 1）
+    try:
+        from . import monthly_mission_card, capital_planner, forex
+    except ImportError:
+        import monthly_mission_card, capital_planner, forex
+
+    force_mission = os.getenv("LIS_FORCE_MISSION", "").lower() in ("true", "1", "yes")
+    if monthly_mission_card.應該出使命卡() or force_mission:
+        try:
+            cfg = capital_planner.載入資金設定()
+            USD_TWD = forex.取得USD_TWD匯率(
+                fallback=cfg.get("currency_rates", {}).get("USD_TWD", 32))["rate"]
+            cards.append(monthly_mission_card.卡_月度使命(cfg, USD_TWD))
+            print("  ✓ 月度使命卡（給兒子的禮物）")
+        except Exception as e:
+            print(f"  ✗ 月度使命卡 失敗：{e}")
+
     return cards
 
 
