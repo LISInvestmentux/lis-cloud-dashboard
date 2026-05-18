@@ -315,6 +315,18 @@ def 處理截圖(message_id: str, reply_token: str):
     print(f"  ✅ 回 LINE: {類型}、{len(紀錄)} 筆", flush=True)
 
 
+@app.head("/")
+def root_head():
+    """支援 UptimeRobot HEAD method 監測（不要回 405）"""
+    return {"ok": True}
+
+
+@app.head("/webhook")
+def webhook_head():
+    """同上"""
+    return {"ok": True}
+
+
 @app.get("/webhook")
 def webhook_get():
     """LINE Verify 機制可能會先用 GET 確認 endpoint 存在 — 回 200 OK"""
