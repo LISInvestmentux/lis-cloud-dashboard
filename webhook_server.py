@@ -192,23 +192,34 @@ def 處理postback(event: dict) -> None:
 
 def 處理截圖(message_id: str, reply_token: str):
     """
-    Phase 79b — LINE 接到截圖後:
-    1. 用 LINE Content API 下載圖片
-    2. 餵 Gemini Vision 解析
-    3. Reply 回 LINE 告訴 user 結果
-    4. 如果是國泰庫存/委託/成交、自動更新 cache
+    Phase 79b v2 (5/18 12:00 修):
+    • 不用 PIL（Render 端可能沒裝）→ 改用 google-genai bytes 介面
+    • 用 LINE Reply API（不用 LINE_USER_ID）→ 避免「to property invalid」
     """
     import requests
     import os
     import json
     import re
-    from io import BytesIO
-    from modules import line_push  # ← 修正 BUG: 之前漏 import
 
     token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
     if not token:
         print("  ❌ LINE_CHANNEL_ACCESS_TOKEN 未設", flush=True)
         return
+
+    def reply_msg(text: str):
+        """用 LINE Reply API 回覆（不用 user_id）"""
+        try:
+            r = requests.post(
+                "https://api.line.me/v2/bot/message/reply",
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                json={"replyToken": reply_token,
+                      "messages": [{"type": "text", "text": text[:4900]}]},
+                timeout=10
+            )
+            print(f"  reply HTTP {r.status_code}: {r.text[:200]}", flush=True)
+        except Exception as e:
+            print(f"  ❌ reply 失敗: {e}", flush=True)
 
     # 1. 下載圖片
     url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
@@ -224,19 +235,18 @@ def 處理截圖(message_id: str, reply_token: str):
         print(f"  ❌ 下載例外: {e}", flush=True)
         return
 
-    # 2. Gemini Vision 解析
+    # 2. Gemini Vision 解析（用 bytes、不需 PIL）
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
-        line_push.推播文字訊息(
-            "⚠️ 收到圖片但 GEMINI_API_KEY 未設、無法 OCR")
+        reply_msg("⚠️ 收到圖片但 GEMINI_API_KEY 未設、無法 OCR")
         return
 
     try:
-        import PIL.Image
         from google import genai
-        image = PIL.Image.open(BytesIO(圖片_bytes))
+        from google.genai import types
         client = genai.Client(api_key=api_key)
-        prompt = """你是國泰證券 app 截圖解析專家。請識別截圖類型 + 解析內容、輸出純 JSON:
+        image_part = types.Part.from_bytes(data=圖片_bytes, mime_type="image/jpeg")
+        prompt = """你是國泰證券 app 截圖解析專家。識別截圖類型 + 解析內容、輸出純 JSON:
 {
   "類型": "庫存查詢 / 委託清單 / 成交明細 / 對帳單 / 其他",
   "信心": 0-100,
@@ -247,10 +257,10 @@ def 處理截圖(message_id: str, reply_token: str):
   ],
   "備註": "..."
 }
-不要 ```json 包裝、直接 JSON。不確定欄位用 null。"""
+不要 ```json 包裝。不確定欄位用 null。"""
         resp = client.models.generate_content(
             model="gemini-2.5-flash-lite",
-            contents=[prompt, image],
+            contents=[prompt, image_part],
         )
         text = resp.text.strip()
         text = re.sub(r'^```json\s*|\s*```$', '', text, flags=re.MULTILINE).strip()
@@ -258,7 +268,7 @@ def 處理截圖(message_id: str, reply_token: str):
         data = json.loads(text)
     except Exception as e:
         print(f"  ❌ Gemini 解析失敗: {e}", flush=True)
-        line_push.推播文字訊息(f"⚠️ 截圖 OCR 失敗: {str(e)[:100]}")
+        reply_msg(f"⚠️ 截圖 OCR 失敗: {str(e)[:100]}")
         return
 
     # 3. 組 Reply 訊息
@@ -292,7 +302,7 @@ def 處理截圖(message_id: str, reply_token: str):
     lines.append("💡 之後會自動 sync portfolio.json")
     lines.append("（目前只解析、未自動寫入）")
 
-    line_push.推播文字訊息("\n".join(lines))
+    reply_msg("\n".join(lines))
     print(f"  ✅ 回 LINE: {類型}、{len(紀錄)} 筆", flush=True)
 
 
