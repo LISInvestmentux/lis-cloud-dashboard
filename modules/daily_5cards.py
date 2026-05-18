@@ -161,6 +161,58 @@ def _卡_今日行動() -> dict:
                      size="xs", color=C["text_dim"]))
     body.append(分隔線())
 
+    # ─── ⚡ 今早具體執行清單（Phase 78 整合、5/18 修） ───
+    # 直接顯示「Phase 66 預掛單 + portfolio.pending_orders + 5 槓桿階段」
+    # → 不用按按鈕就看到「今早要掛哪些單」
+    try:
+        import json
+        from pathlib import Path
+        _專案 = Path(__file__).resolve().parent.parent.parent
+        _phase66 = _專案 / "數據" / "cache" / "pre_market_orders_latest.json"
+        _phase78 = _專案 / "數據" / "cache" / "unified_consensus_latest.json"
+        執行清單 = []
+        if _phase66.exists():
+            _d = json.loads(_phase66.read_text(encoding="utf-8"))
+            for s in _d.get("賣單建議", [])[:3]:
+                兩段 = s.get("兩段式", {})
+                A = 兩段.get("賣單A_試反彈", {})
+                B = 兩段.get("賣單B_保底", {})
+                執行清單.append({
+                    "標的": s.get("symbol", "?"),
+                    "name": s.get("name", "")[:6],
+                    "動作": f"賣 {A.get('股數', 0)}@{A.get('限價', 0)} + {B.get('股數', 0)}@{B.get('限價', 0)}",
+                    "強度": s.get("該賣分", 0),
+                })
+        # pending orders (已掛單)
+        for o in (cfg.get("pending_orders") or [])[:2]:
+            執行清單.append({
+                "標的": o.get("symbol", "?"),
+                "name": "",
+                "動作": f"{o.get('action', '?')} {o.get('shares', 0)} @ {o.get('price', 0)} (已掛)",
+                "強度": "—",
+            })
+        if 執行清單:
+            body.append(文字("⚡ 今早具體執行（直接掛單）", size="md",
+                            color=C.get("warn", "#FFA500"), weight="bold"))
+            for x in 執行清單[:5]:
+                強度 = f" [強賣 {x['強度']}]" if isinstance(x["強度"], (int, float)) else ""
+                body.append(文字(
+                    f"• {x['標的']} {x['name']} — {x['動作']}{強度}",
+                    size="sm", color=C["text_main"], weight="bold"))
+            # Phase 78 最終共識一句話
+            if _phase78.exists():
+                try:
+                    _d78 = json.loads(_phase78.read_text(encoding="utf-8"))
+                    _一句 = _d78.get("最終一句", "")
+                    if _一句:
+                        body.append(文字(f"💎 {_一句[:60]}",
+                                        size="xs", color=C["text_dim"], margin="xs"))
+                except Exception:
+                    pass
+            body.append(分隔線())
+    except Exception as _e:
+        pass  # 拉不到 cache 就跳過、不影響其他卡
+
     # ─── 🟢 該買 ───
     買選項 = []
     # 左側買回（SATL 跌回機會）

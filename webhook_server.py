@@ -190,6 +190,111 @@ def 處理postback(event: dict) -> None:
             pass
 
 
+def 處理截圖(message_id: str, reply_token: str):
+    """
+    Phase 79b — LINE 接到截圖後:
+    1. 用 LINE Content API 下載圖片
+    2. 餵 Gemini Vision 解析
+    3. Reply 回 LINE 告訴 user 結果
+    4. 如果是國泰庫存/委託/成交、自動更新 cache
+    """
+    import requests
+    import os
+    import json
+    import re
+    from io import BytesIO
+
+    token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
+    if not token:
+        print("  ❌ LINE_CHANNEL_ACCESS_TOKEN 未設", flush=True)
+        return
+
+    # 1. 下載圖片
+    url = f"https://api-data.line.me/v2/bot/message/{message_id}/content"
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        r = requests.get(url, headers=headers, timeout=30)
+        if r.status_code != 200:
+            print(f"  ❌ 下載失敗 {r.status_code}", flush=True)
+            return
+        圖片_bytes = r.content
+        print(f"  ✓ 下載 {len(圖片_bytes)/1024:.0f} KB", flush=True)
+    except Exception as e:
+        print(f"  ❌ 下載例外: {e}", flush=True)
+        return
+
+    # 2. Gemini Vision 解析
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        line_push.推播文字訊息(
+            "⚠️ 收到圖片但 GEMINI_API_KEY 未設、無法 OCR")
+        return
+
+    try:
+        import PIL.Image
+        from google import genai
+        image = PIL.Image.open(BytesIO(圖片_bytes))
+        client = genai.Client(api_key=api_key)
+        prompt = """你是國泰證券 app 截圖解析專家。請識別截圖類型 + 解析內容、輸出純 JSON:
+{
+  "類型": "庫存查詢 / 委託清單 / 成交明細 / 對帳單 / 其他",
+  "信心": 0-100,
+  "紀錄": [
+    {"股票名稱": "...", "股票代號": "...", "現股": 0, "零股": 0,
+     "委託價": 0, "成交價": 0, "股數": 0, "方向": "現買/現賣",
+     "狀態": "完全成交/委託成功/委託失敗/委託已取消"}
+  ],
+  "備註": "..."
+}
+不要 ```json 包裝、直接 JSON。不確定欄位用 null。"""
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=[prompt, image],
+        )
+        text = resp.text.strip()
+        text = re.sub(r'^```json\s*|\s*```$', '', text, flags=re.MULTILINE).strip()
+        text = re.sub(r'^```\s*|\s*```$', '', text, flags=re.MULTILINE).strip()
+        data = json.loads(text)
+    except Exception as e:
+        print(f"  ❌ Gemini 解析失敗: {e}", flush=True)
+        line_push.推播文字訊息(f"⚠️ 截圖 OCR 失敗: {str(e)[:100]}")
+        return
+
+    # 3. 組 Reply 訊息
+    類型 = data.get("類型", "?")
+    信心 = data.get("信心", 0)
+    紀錄 = data.get("紀錄", [])
+
+    lines = [f"📸 截圖已解析 ({類型}、信心 {信心}/100)"]
+    lines.append("─" * 12)
+    for i, r in enumerate(紀錄[:8], 1):
+        name = r.get("股票名稱") or r.get("股票代號") or "?"
+        if 類型 == "庫存查詢":
+            股 = (r.get("現股") or 0) + (r.get("零股") or 0)
+            lines.append(f"{i}. {name}: 持 {股} 股")
+        elif 類型 == "委託清單":
+            價 = r.get("委託價") or 0
+            股 = r.get("股數") or 0
+            方 = r.get("方向") or ""
+            狀 = r.get("狀態") or ""
+            lines.append(f"{i}. {name} {方} {股}股 @{價} ({狀})")
+        elif 類型 == "成交明細":
+            價 = r.get("成交價") or 0
+            股 = r.get("股數") or 0
+            方 = r.get("方向") or ""
+            lines.append(f"{i}. {name} {方} {股}股 @{價}")
+        else:
+            lines.append(f"{i}. {name}")
+    if len(紀錄) > 8:
+        lines.append(f"...還有 {len(紀錄) - 8} 筆")
+    lines.append("")
+    lines.append("💡 之後會自動 sync portfolio.json")
+    lines.append("（目前只解析、未自動寫入）")
+
+    line_push.推播文字訊息("\n".join(lines))
+    print(f"  ✅ 回 LINE: {類型}、{len(紀錄)} 筆", flush=True)
+
+
 @app.get("/webhook")
 def webhook_get():
     """LINE Verify 機制可能會先用 GET 確認 endpoint 存在 — 回 200 OK"""
@@ -253,8 +358,20 @@ async def webhook(request: Request,
         if evt_type == "postback":
             處理postback(event)
         elif evt_type == "message":
-            text = event.get("message", {}).get("text", "")
-            print(f"  message: {text[:50]}", flush=True)
+            msg = event.get("message", {})
+            msg_type = msg.get("type", "")
+            if msg_type == "text":
+                text = msg.get("text", "")
+                print(f"  message: {text[:50]}", flush=True)
+            elif msg_type == "image":
+                # ⭐ Phase 79b (5/18 10:45) — LINE 圖片接收、自動 OCR
+                msg_id = msg.get("id")
+                reply_token = event.get("replyToken")
+                print(f"  image received: {msg_id}", flush=True)
+                try:
+                    處理截圖(msg_id, reply_token)
+                except Exception as e:
+                    print(f"  ❌ 截圖處理失敗: {e}", flush=True)
 
     return {"ok": True}
 

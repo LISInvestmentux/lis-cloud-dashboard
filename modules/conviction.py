@@ -158,6 +158,18 @@ def 過濾停損警示(警示清單: list, cfg: dict, USD_TWD: float) -> tuple:
         conviction = 取得信念分數(symbol, cfg, r)
         threshold = 停損閾值(is_us, conviction)
 
+        # 覆寫機制（v2 5/17）：portfolio.json 個別 stop_loss_pct 優先
+        override = r.get("stop_loss_pct")
+        if override is None:
+            # 從 cfg.current_positions 找這檔的個別設定
+            for p in cfg.get("current_positions", []) or []:
+                if p.get("symbol") == symbol and p.get("stop_loss_pct") is not None:
+                    override = p["stop_loss_pct"]
+                    break
+        if override is not None:
+            threshold = float(override)
+            r["_停損覆寫"] = f"user 親設 {threshold}%"
+
         # A. 部位過小 → 觀察
         if market_value_twd < MIN_POSITION_TWD:
             r["_過濾原因"] = (
