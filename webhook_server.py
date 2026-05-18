@@ -203,6 +203,7 @@ def 處理截圖(message_id: str, reply_token: str):
     import json
     import re
     from io import BytesIO
+    from modules import line_push  # ← 修正 BUG: 之前漏 import
 
     token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "").strip()
     if not token:
