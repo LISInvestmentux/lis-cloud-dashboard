@@ -241,11 +241,9 @@ def 處理截圖(message_id: str, reply_token: str):
         reply_msg("⚠️ 收到圖片但 GEMINI_API_KEY 未設、無法 OCR")
         return
 
+    # v3: 用 REST API 直接呼叫 Gemini Vision、繞過 SDK
     try:
-        from google import genai
-        from google.genai import types
-        client = genai.Client(api_key=api_key)
-        image_part = types.Part.from_bytes(data=圖片_bytes, mime_type="image/jpeg")
+        import base64
         prompt = """你是國泰證券 app 截圖解析專家。識別截圖類型 + 解析內容、輸出純 JSON:
 {
   "類型": "庫存查詢 / 委託清單 / 成交明細 / 對帳單 / 其他",
@@ -258,11 +256,22 @@ def 處理截圖(message_id: str, reply_token: str):
   "備註": "..."
 }
 不要 ```json 包裝。不確定欄位用 null。"""
-        resp = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
-            contents=[prompt, image_part],
-        )
-        text = resp.text.strip()
+        image_b64 = base64.b64encode(圖片_bytes).decode()
+        gemini_url = (f"https://generativelanguage.googleapis.com/v1beta/"
+                      f"models/gemini-2.5-flash-lite:generateContent?key={api_key}")
+        gemini_body = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}}
+                ]
+            }]
+        }
+        gr = requests.post(gemini_url, json=gemini_body, timeout=60)
+        if gr.status_code != 200:
+            raise Exception(f"Gemini HTTP {gr.status_code}: {gr.text[:200]}")
+        gd = gr.json()
+        text = gd["candidates"][0]["content"]["parts"][0]["text"].strip()
         text = re.sub(r'^```json\s*|\s*```$', '', text, flags=re.MULTILINE).strip()
         text = re.sub(r'^```\s*|\s*```$', '', text, flags=re.MULTILINE).strip()
         data = json.loads(text)
